@@ -607,6 +607,7 @@ struct VariableValue  Scr_GetArrayIndexValue(unsigned int name)
 		value.type = VAR_STRING;
 		value.u.intValue = (uint16_t)name;
 	}
+
 	return value;
 }
 
@@ -1763,7 +1764,7 @@ bool  Scr_CastString(VariableValue* value)
 void  Scr_CastDebugString(VariableValue* value)
 {
 	const XAnim_s* Anims; // eax
-	HashEntry_unnamed_type_u v2{ 0 }; // eax
+	unsigned int v2; // eax
 	unsigned int intValue; // [esp-4h] [ebp-18h]
 	unsigned int stringValue; // [esp+8h] [ebp-Ch]
 	char* s; // [esp+10h] [ebp-4h]
@@ -1773,7 +1774,7 @@ void  Scr_CastDebugString(VariableValue* value)
 	{
 	case VAR_POINTER:
 		sa = (char*)var_typename[GetObjectType(value->u.intValue)];
-		v2.prev = SL_GetString_(sa, 0, 15);
+		v2 = SL_GetString_(sa, 0, 15);
 		goto LABEL_7;
 	case VAR_STRING:
 	case VAR_VECTOR:
@@ -1788,12 +1789,12 @@ void  Scr_CastDebugString(VariableValue* value)
 		intValue = value->u.intValue;
 		Anims = Scr_GetAnims(HIWORD(value->u.intValue));
 		s = XAnimGetAnimDebugName(Anims, intValue);
-		v2.prev = SL_GetString_(s, 0, 15);
+		v2 = SL_GetString_(s, 0, 15);
 		goto LABEL_7;
 	default:
-		v2.prev = SL_GetString_((char*)var_typename[value->type], 0, 15);
+		v2 = SL_GetString_((char*)var_typename[value->type], 0, 15);
 	LABEL_7:
-		stringValue = v2.prev;
+		stringValue = v2;
 		RemoveRefToValue(value->type, value->u);
 		value->type = VAR_STRING;
 		value->u.intValue = stringValue;
@@ -2046,7 +2047,7 @@ void  Scr_EvalPlus(VariableValue* value1, VariableValue* value2)
 				v3 = *v5;
 				*v4++ = *v5++;
 			} while (v3);
-			v9.stringValue = SL_GetStringOfSize(str, 0, len, 15).prev;
+			v9.stringValue = SL_GetStringOfSize(str, 0, len, 15);
 			SL_RemoveRefToString(value1->u.intValue);
 			SL_RemoveRefToString(value2->u.intValue);
 			value1->u = v9;
@@ -2645,11 +2646,11 @@ void  Scr_EvalEquality(VariableValue* value1, VariableValue* value2)
 	iassert(value1->type == value2->type);
 	switch (value1->type)
 	{
-	case 0:
+	case VAR_UNDEFINED:
 		value1->type = VAR_INTEGER;
 		value1->u.intValue = 1;
 		break;
-	case 1:
+	case VAR_POINTER:
 		if (((scrVarGlob.variableList[value1->u.intValue + VARIABLELIST_CHILD_BEGIN].w.status & 0x1F) == 0x15
 			|| (scrVarGlob.variableList[value2->u.intValue + VARIABLELIST_CHILD_BEGIN].w.status & 0x1F) == 0x15)
 			&& !scrVarPub.evaluate)
@@ -2662,15 +2663,15 @@ void  Scr_EvalEquality(VariableValue* value1, VariableValue* value2)
 		RemoveRefToObject(value2->u.intValue);
 		value1->u.intValue = tempInta;
 		break;
-	case 2:
-	case 3:
+	case VAR_STRING:
+	case VAR_ISTRING:
 		value1->type = VAR_INTEGER;
 		tempInt = value1->u.intValue == value2->u.intValue;
 		SL_RemoveRefToString(value1->u.intValue);
 		SL_RemoveRefToString(value2->u.intValue);
 		value1->u.intValue = tempInt;
 		break;
-	case 4:
+	case VAR_VECTOR:
 		value1->type = VAR_INTEGER;
 		v2 = *(float*)value2->u.intValue == *(float*)value1->u.intValue
 			&& *(float*)(value2->u.intValue + 4) == *(float*)(value1->u.intValue + 4)
@@ -2679,20 +2680,20 @@ void  Scr_EvalEquality(VariableValue* value1, VariableValue* value2)
 		RemoveRefToVector(value2->u.vectorValue);
 		value1->u.intValue = v2;
 		break;
-	case 5:
+	case VAR_FLOAT:
 		value1->type = VAR_INTEGER;
 		v4 = value1->u.floatValue - value2->u.floatValue;
 		v3 = I_fabs(v4);
 		value1->u.intValue = v3 < 0.0000009999999974752427;
 		break;
-	case 6:
+	case VAR_INTEGER:
 		value1->u.intValue = value1->u.intValue == value2->u.intValue;
 		break;
-	case 9:
+	case VAR_FUNCTION:
 		value1->type = VAR_INTEGER;
 		value1->u.intValue = value1->u.intValue == value2->u.intValue;
 		break;
-	case 0xB:
+	case VAR_ANIMATION:
 		value1->type = VAR_INTEGER;
 		value1->u.intValue = value1->u.intValue == value2->u.intValue;
 		break;
@@ -2857,7 +2858,7 @@ void  Scr_EvalArray(VariableValue* value, VariableValue* index)
 			c[0] = s[index->u.intValue];
 			c[1] = 0;
 
-			index->u.stringValue = SL_GetStringOfSize(c, 0, 2, 15).prev;
+			index->u.stringValue = SL_GetStringOfSize(c, 0, 2, 15);
 			SL_RemoveRefToString(value->u.stringValue);
 		}
 		else

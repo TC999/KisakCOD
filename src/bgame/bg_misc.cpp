@@ -208,10 +208,10 @@ void __cdecl BG_RegisterShockVolumeDvars()
     for (i = 0; i < SND_GetEntChannelCount(); ++i)
     {
         channelName = SND_GetEntChannelName(i);
-        if (!channelName)
-            MyAssertHandler(".\\bgame\\bg_misc.cpp", 498, 0, "%s", "channelName");
-        if (strlen(channelName->name) > 0x40)
-            MyAssertHandler(".\\bgame\\bg_misc.cpp", 499, 0, "%s", "strlen(channelName) <= SND_MAX_ENTCHANNEL_NAMELENGTH");
+
+        iassert(channelName);
+        iassert(strlen(channelName->name) < SND_MAX_ENTCHANNEL_NAMELENGTH);
+
         sprintf_s(bgShockChannelNames[i], 80, "bg_shock_volume_%s", channelName->name);        
         min.value.max = 1.0;
         min.value.min = 0.0;
@@ -1065,12 +1065,12 @@ bool __cdecl BG_PlayerTouchesItem(const playerState_s *ps, const entityState_s *
 
 bool __cdecl BG_PlayerCanPickUpWeaponType(const WeaponDef *weapDef, const playerState_s *ps)
 {
-    if (!weapDef)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 812, 0, "%s", "weapDef");
-    if (!ps)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 813, 0, "%s", "ps");
+    iassert(weapDef);
+    iassert(ps);
+
     if (weapDef->offhandClass == OFFHAND_CLASS_FLASH_GRENADE && ps->offhandSecondary != PLAYER_OFFHAND_SECONDARY_FLASH)
-        return 0;
+        return false;
+
     return weapDef->offhandClass != OFFHAND_CLASS_SMOKE_GRENADE || ps->offhandSecondary == PLAYER_OFFHAND_SECONDARY_SMOKE;
 }
 
@@ -1102,13 +1102,6 @@ bool __cdecl BG_CanItemBeGrabbed(const entityState_s *ent, const playerState_s *
     weapDef = BG_GetWeaponDef(weapIdx);
 
     iassert(bg_itemlist[ITEM_WEAPMODEL(ent->index.item) * MAX_WEAPONS + weapIdx].giType == IT_WEAPON);
-    //if (bg_itemlist[128 * (ent->index.brushmodel / 128) + weapIdx].giType != IT_WEAPON)
-    //    MyAssertHandler(
-    //        ".\\bgame\\bg_misc.cpp",
-    //        877,
-    //        0,
-    //        "%s",
-    //        "bg_itemlist[ ITEM_WEAPMODEL( ent->index.item ) * MAX_WEAPONS + weapIdx].giType == IT_WEAPON");
 
     if (WeaponEntCanBeGrabbed(ent, ps, touched, weapIdx))
         return 1;
@@ -1116,59 +1109,62 @@ bool __cdecl BG_CanItemBeGrabbed(const entityState_s *ent, const playerState_s *
     return weapDef->altWeaponIndex && WeaponEntCanBeGrabbed(ent, ps, touched, weapDef->altWeaponIndex);
 }
 
-char __cdecl WeaponEntCanBeGrabbed(
+bool __cdecl WeaponEntCanBeGrabbed(
     const entityState_s *weaponEntState,
     const playerState_s *ps,
     int32_t touched,
     uint32_t weapIdx)
 {
-    const WeaponDef *weapDef; // [esp+0h] [ebp-4h]
+    const WeaponDef* weapDef = BG_GetWeaponDef(weapIdx); // [esp+0h] [ebp-4h]
 
-    weapDef = BG_GetWeaponDef(weapIdx);
     if (!BG_PlayerCanPickUpWeaponType(weapDef, ps))
-        return 0;
+        return false;
+
     if (weaponEntState->eType == ET_MISSILE && weapDef->offhandClass == OFFHAND_CLASS_FRAG_GRENADE)
-        return 1;
+        return true;
+
     if (touched)
     {
-        if (!ps)
-            MyAssertHandler("c:\\trees\\cod3\\src\\bgame\\../bgame/bg_weapons.h", 229, 0, "%s", "ps");
+        iassert(ps);
+
         if ((Com_BitCheckAssert(ps->weapons, weapIdx, 16) || BG_PlayerHasCompatibleWeapon(ps, weapIdx))
             && HaveRoomForAmmo(ps, weapIdx))
         {
-            return 1;
+            return true;
         }
     }
     else
     {
-        if (!ps)
-            MyAssertHandler("c:\\trees\\cod3\\src\\bgame\\../bgame/bg_weapons.h", 229, 0, "%s", "ps");
+        iassert(ps);
+
         if (!Com_BitCheckAssert(ps->weapons, weapIdx, 16))
-            return 1;
+            return true;
     }
-    return 0;
+    return false;
 }
 
-char __cdecl HaveRoomForAmmo(const playerState_s *ps, uint32_t weaponIndex)
+bool __cdecl HaveRoomForAmmo(const playerState_s *ps, uint32_t weaponIndex)
 {
     int32_t ammoIndex; // [esp+0h] [ebp-14h]
     int32_t weapCount; // [esp+4h] [ebp-10h]
     WeaponDef *weaponDef; // [esp+8h] [ebp-Ch]
-    int32_t weapIndex; // [esp+Ch] [ebp-8h]
 
-    if (!ps)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 789, 0, "%s", "ps");
+    iassert(ps);
+
     weapCount = BG_GetNumWeapons();
     weaponDef = BG_GetWeaponDef(weaponIndex);
     ammoIndex = weaponDef->iAmmoIndex;
+
     if (!*weaponDef->szAmmoName)
-        return 1;
-    for (weapIndex = 1; weapIndex < weapCount; ++weapIndex)
+        return true;
+
+    for (int32_t weapIndex = 1; weapIndex < weapCount; ++weapIndex) // [esp+Ch] [ebp-8h]
     {
         if (BG_GetWeaponDef(weapIndex)->iAmmoIndex == ammoIndex && BG_GetMaxPickupableAmmo(ps, weapIndex) > 0)
-            return 1;
+            return true;
     }
-    return 0;
+
+    return false;
 }
 
 bool __cdecl BG_PlayerHasRoomForEntAllAmmoTypes(const entityState_s *ent, const playerState_s *ps)
@@ -1178,29 +1174,27 @@ bool __cdecl BG_PlayerHasRoomForEntAllAmmoTypes(const entityState_s *ent, const 
     unsigned int weapIdx; // [esp+0h] [ebp-8h]
     const WeaponDef *weapDef; // [esp+4h] [ebp-4h]
 
-    if (!ent)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 893, 0, "%s", "ent");
-    if (!ps)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 894, 0, "%s", "ps");
+    iassert(ent);
+    iassert(ps);
+
     if (ent->index.brushmodel < 1 || ent->index.brushmodel >= 2048)
     {
         v2 = va("BG_PlayerHasRoomForAllAmmoTypesOfEnt: index out of range (index is %i, eType is %i)", ent->index.brushmodel, ent->eType);
         Com_Error(ERR_DROP, v2);
     }
+
     v3 = ent->index.brushmodel % 128;
     weapIdx = v3;
     if (!v3)
-        return 0;
-    if (bg_itemlist[128 * (ent->index.brushmodel / 128) + v3].giType != IT_WEAPON)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            902,
-            0,
-            "%s",
-            "bg_itemlist[ ITEM_WEAPMODEL( ent->index.item ) * MAX_WEAPONS + weapIdx].giType == IT_WEAPON");
+        return false;
+
+    iassert(bg_itemlist[ITEM_WEAPMODEL(ent->index.item) * MAX_WEAPONS + weapIdx].giType == IT_WEAPON);
+
     if (!BG_GetMaxPickupableAmmo(ps, weapIdx))
-        return 0;
+        return false;
+
     weapDef = BG_GetWeaponDef(weapIdx);
+
     return !weapDef->altWeaponIndex || BG_GetMaxPickupableAmmo(ps, weapDef->altWeaponIndex);
 }
 
@@ -1220,26 +1214,11 @@ void __cdecl BG_EvaluateTrajectory(const trajectory_t *tr, int32_t atTime, float
     float deltaTimee; // [esp+78h] [ebp-10h]
     float v[3]; // [esp+7Ch] [ebp-Ch] BYREF
 
-    if (!tr)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 921, 0, "%s", "tr");
-    if (!(!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2])))
-    {
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            922,
-            0,
-            "%s",
-            "!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2])");
-    }
-    if (!(!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2])))
-    {
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            923,
-            0,
-            "%s",
-            "!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2])");
-    }
+    iassert(tr);
+
+    iassert(!IS_NAN((tr->trBase)[0] && !IS_NAN((tr->trBase)[1] && !IS_NAN((tr->trBase)[2]))));
+    iassert(!IS_NAN((tr->trDelta)[0] && !IS_NAN((tr->trDelta)[1] && !IS_NAN((tr->trDelta)[2]))));
+
     switch (tr->trType)
     {
     case TR_STATIONARY:
@@ -1298,28 +1277,9 @@ void __cdecl BG_EvaluateTrajectory(const trajectory_t *tr, int32_t atTime, float
         Com_Error(ERR_DROP, "BG_EvaluateTrajectory: unknown trType: %i", tr->trType);
         break;
     }
-    if ((COERCE_UNSIGNED_INT(tr->trBase[0]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trBase[1]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trBase[2]) & 0x7F800000) == 0x7F800000)
-    {
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            998,
-            0,
-            "%s",
-            "!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2])");
-    }
-    if ((COERCE_UNSIGNED_INT(tr->trDelta[0]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trDelta[1]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trDelta[2]) & 0x7F800000) == 0x7F800000)
-    {
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            999,
-            0,
-            "%s",
-            "!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2])");
-    }
+
+    iassert(!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2]));
+    iassert(!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2]));
 }
 
 void __cdecl BG_EvaluateTrajectoryDelta(const trajectory_t *tr, int32_t atTime, float *result)
@@ -1333,28 +1293,9 @@ void __cdecl BG_EvaluateTrajectoryDelta(const trajectory_t *tr, int32_t atTime, 
     float deltaTimeb; // [esp+68h] [ebp-4h]
     float deltaTimec; // [esp+68h] [ebp-4h]
 
-    if ((COERCE_UNSIGNED_INT(tr->trBase[0]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trBase[1]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trBase[2]) & 0x7F800000) == 0x7F800000)
-    {
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1015,
-            0,
-            "%s",
-            "!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2])");
-    }
-    if ((COERCE_UNSIGNED_INT(tr->trDelta[0]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trDelta[1]) & 0x7F800000) == 0x7F800000
-        || (COERCE_UNSIGNED_INT(tr->trDelta[2]) & 0x7F800000) == 0x7F800000)
-    {
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1016,
-            0,
-            "%s",
-            "!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2])");
-    }
+    iassert(!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2]));
+    iassert(!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2]));
+
     switch (tr->trType)
     {
     case TR_STATIONARY:
@@ -1408,28 +1349,8 @@ void __cdecl BG_EvaluateTrajectoryDelta(const trajectory_t *tr, int32_t atTime, 
             deltaTimec = (double)(atTime - tr->trTime) * EQUAL_EPSILON;
             Vec3Scale(tr->trDelta, deltaTimec, result);
         LABEL_22:
-            if ((COERCE_UNSIGNED_INT(tr->trBase[0]) & 0x7F800000) == 0x7F800000
-                || (COERCE_UNSIGNED_INT(tr->trBase[1]) & 0x7F800000) == 0x7F800000
-                || (COERCE_UNSIGNED_INT(tr->trBase[2]) & 0x7F800000) == 0x7F800000)
-            {
-                MyAssertHandler(
-                    ".\\bgame\\bg_misc.cpp",
-                    1069,
-                    0,
-                    "%s",
-                    "!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2])");
-            }
-            if ((COERCE_UNSIGNED_INT(tr->trDelta[0]) & 0x7F800000) == 0x7F800000
-                || (COERCE_UNSIGNED_INT(tr->trDelta[1]) & 0x7F800000) == 0x7F800000
-                || (COERCE_UNSIGNED_INT(tr->trDelta[2]) & 0x7F800000) == 0x7F800000)
-            {
-                MyAssertHandler(
-                    ".\\bgame\\bg_misc.cpp",
-                    1070,
-                    0,
-                    "%s",
-                    "!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2])");
-            }
+            iassert(!IS_NAN((tr->trBase)[0]) && !IS_NAN((tr->trBase)[1]) && !IS_NAN((tr->trBase)[2]));
+            iassert(!IS_NAN((tr->trDelta)[0]) && !IS_NAN((tr->trDelta)[1]) && !IS_NAN((tr->trDelta)[2]));
         }
         else
         {
@@ -1448,16 +1369,9 @@ void __cdecl BG_AddPredictableEventToPlayerstate(uint32_t newEvent, uint32_t eve
 {
     if (newEvent)
     {
-        if (newEvent >= 0x100)
-            MyAssertHandler(
-                ".\\bgame\\bg_misc.cpp",
-                1125,
-                0,
-                "newEvent doesn't index 256\n\t%i not in [0, %i)",
-                newEvent,
-                256);
-        if (eventParm > 0xFF)
-            MyAssertHandler(".\\bgame\\bg_misc.cpp", 1126, 0, "%s", "eventParm <= EVENT_PARM_MAX");
+        iassert(newEvent < 0x100);
+        iassert(eventParm <= EVENT_PARM_MAX);
+
         if (Dvar_GetBool("showevents"))
             Com_Printf(
                 17,
@@ -1503,24 +1417,13 @@ void __cdecl BG_PlayerToEntityEventParm(playerState_s *ps, entityState_s *s)
         if (ps->eventSequence - ps->entityEventSequence > 4)
             ps->entityEventSequence = ps->eventSequence - 4;
         seq = ps->entityEventSequence & 3;
-        if (ps->eventParms[seq] > 0xFF)
-            MyAssertHandler(
-                ".\\bgame\\bg_misc.cpp",
-                1155,
-                0,
-                "%s",
-                "(ps->eventParms[seq] >= 0) && (ps->eventParms[seq] <= EVENT_PARM_MAX)");
+        iassert(ps->eventParms[seq] <= EVENT_PARM_MAX);
+
         s->eventParm = LOBYTE(ps->eventParms[seq]);
         ps->entityEventSequence = (uint8_t)(ps->entityEventSequence + 1);
     }
-    if (s->eventParm > 0xFF)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1167,
-            0,
-            "%s\n\t(s->eventParm) = %i",
-            "(s->eventParm <= 0xff)",
-            s->eventParm);
+
+    iassert(s->eventParm <= EVENT_PARM_MAX);
 }
 
 void __cdecl BG_PlayerToEntityProcessEvents(playerState_s *ps, entityState_s *s, uint8_t handler)
@@ -1692,7 +1595,7 @@ void __cdecl BG_PlayerToEntitySetTrajectory(playerState_s *ps, entityState_s *s,
 #endif
 }
 
-char __cdecl BG_CheckProneValid(
+bool __cdecl BG_CheckProneValid(
     int32_t passEntityNum,
     const float *vPos,
     float fSize,
@@ -1743,12 +1646,14 @@ char __cdecl BG_CheckProneValid(
     bFirstTraceHit = 0;
     success = 1;
     traceFunc = pmoveHandlers[handler].trace;
-    if (!traceFunc)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 1435, 0, "%s", "traceFunc");
+
+    iassert(traceFunc);
+
     if (proneCheckType)
         iTraceMask = 0x820011;
     else
         iTraceMask = 0x810011;
+
     if (!isAlreadyProne)
     {
         vMins[0] = -fSize;
@@ -1766,10 +1671,12 @@ char __cdecl BG_CheckProneValid(
         vEnd[2] = vEnd[2] + 10.0;
         traceFunc(&trace, vStart, vMins, vMaxs, vEnd, passEntityNum, iTraceMask);
         if (trace.allsolid)
-            return 0;
+            return false;
     }
+
     if (isOnGround && !groundIsWalkable)
-        return 0;
+        return false;
+
     vMins[0] = -6.0;
     vMins[1] = -6.0;
     vMins[2] = -6.0;
@@ -1818,7 +1725,7 @@ char __cdecl BG_CheckProneValid(
                 bFirstTraceHit = 1;
                 fFirstTraceDist = trace.fraction * fPitchDiff + 6.0;
                 if (fFirstTraceDist < fTraceHeight * 0.699999988079071 + 18.0)
-                    return 0;
+                    return false;
             }
         }
     }
@@ -1831,8 +1738,10 @@ char __cdecl BG_CheckProneValid(
     traceFunc(&trace, vStart, vMins, vMaxs, vEnd, passEntityNum, iTraceMask);
     if (trace.fraction == 1.0)
         goto fail;
+
     if (!trace.walkable)
-        return 0;
+        return false;
+
     fWaistTraceDist = (fSize * 2.5 + fTraceHeight - 6.0) * trace.fraction + 6.0;
     Vec3Lerp(vStart, vEnd, trace.fraction, vWaistPos);
     vWaistPos[2] = vWaistPos[2] - 6.0;
@@ -1840,6 +1749,7 @@ char __cdecl BG_CheckProneValid(
     {
         if (fWaistTraceDist * -0.75 > fFirstTraceDist - fWaistTraceDist)
             goto fail;
+
         Vec3Sub(vFeetPos, vWaistPos, vDelta);
         Vec3Mad(vDelta, 6.0, vForward, vDelta);
         vDelta[2] = vDelta[2] + 6.0;
@@ -1849,6 +1759,7 @@ char __cdecl BG_CheckProneValid(
         vEnd[0] = ((prone_feet_dist - 6.0) * vForward[0] + *vPos + vEnd[0]) * 0.5;
         vEnd[1] = ((prone_feet_dist - 6.0) * vForward[1] + vPos[1] + vEnd[1]) * 0.5;
         traceFunc(&trace, vStart, vMins, vMaxs, vEnd, passEntityNum, iTraceMask);
+
         if (trace.fraction < 1.0)
         {
             Vec3Lerp(vStart, vEnd, trace.fraction, vStart);
@@ -1858,6 +1769,7 @@ char __cdecl BG_CheckProneValid(
             if (trace.fraction < 1.0)
                 goto fail;
         }
+
         Vec3Lerp(vStart, vEnd, trace.fraction, vFeetPos);
     }
     vStart[0] = vFeetPos[0];
@@ -1867,10 +1779,12 @@ char __cdecl BG_CheckProneValid(
     vEnd[1] = vFeetPos[1];
     vEnd[2] = vFeetPos[2] - (vFeetPos[2] - vWaistPos[2] + vFeetPos[2] - vWaistPos[2] + fSize * 1.0);
     traceFunc(&trace, vStart, vMins, vMaxs, vEnd, passEntityNum, iTraceMask);
+
     if (trace.fraction != 1.0)
     {
         if (!trace.walkable)
-            return 0;
+            return false;
+
         Vec3Lerp(vStart, vEnd, trace.fraction, vFeetPos);
         vFeetPos[2] = vFeetPos[2] - 6.0;
         vTorsoPos[0] = *vPos;
@@ -1889,8 +1803,10 @@ char __cdecl BG_CheckProneValid(
         v14 = floor(v15);
         fWaistPitch = (v22 - v14) * 360.0;
         fPitchDiff = AngleDelta(fTorsoPitch, fWaistPitch);
+
         if (fPitchDiff < -50.0 || fPitchDiff > 70.0)
             success = 0;
+
         vMins[0] = -0.0;
         vMins[1] = -0.0;
         vMins[2] = -0.0;
@@ -1904,8 +1820,10 @@ char __cdecl BG_CheckProneValid(
         vEnd[1] = vWaistPos[1];
         vEnd[2] = vWaistPos[2] + 5.0;
         traceFunc(&trace, vStart, vMins, vMaxs, vEnd, passEntityNum, iTraceMask);
+
         if (trace.fraction < 1.0)
             success = 0;
+
         vStart[0] = vEnd[0];
         vStart[1] = vEnd[1];
         vStart[2] = vEnd[2];
@@ -1913,23 +1831,29 @@ char __cdecl BG_CheckProneValid(
         vEnd[1] = vFeetPos[1];
         vEnd[2] = vFeetPos[2] + 5.0;
         traceFunc(&trace, vStart, vMins, vMaxs, vEnd, passEntityNum, iTraceMask);
+
         if (trace.fraction < 1.0)
             success = 0;
+
         if (pfTorsoPitch)
             *pfTorsoPitch = fTorsoPitch;
         if (pfWaistPitch)
             *pfWaistPitch = fWaistPitch;
+
         if (success)
-            return 1;
+            return true;
     }
 fail:
     if (isOnGround)
-        return 0;
+        return false;
+
     if (pfTorsoPitch)
         *pfTorsoPitch = 0.0;
+
     if (pfWaistPitch)
         *pfWaistPitch = 0.0;
-    return 1;
+
+    return true;
 }
 
 void __cdecl BG_GetPlayerViewOrigin(const playerState_s *ps, float *origin, int32_t time)
@@ -1941,20 +1865,24 @@ void __cdecl BG_GetPlayerViewOrigin(const playerState_s *ps, float *origin, int3
     float xyspeed; // [esp+2Ch] [ebp-8h]
     float deltaB; // [esp+30h] [ebp-4h]
 
-    if ((ps->eFlags & 0x300) != 0)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 1685, 0, "%s", "!( ps->eFlags & EF_TURRET_ACTIVE )");
+    iassert(!(ps->eFlags & EF_TURRET_ACTIVE));
+
     *origin = ps->origin[0];
     origin[1] = ps->origin[1];
     origin[2] = ps->origin[2];
     origin[2] = origin[2] + ps->viewHeightCurrent;
+
     fBobCycle = BG_GetBobCycle(ps);
     xyspeed = BG_GetSpeed(ps, time);
     delta = BG_GetVerticalBobFactor(ps, fBobCycle, xyspeed, bg_bobMax->current.value);
+
     origin[2] = origin[2] + delta;
+
     deltaB = BG_GetHorizontalBobFactor(ps, fBobCycle, xyspeed, bg_bobMax->current.value);
     BG_GetPlayerViewDirection(ps, 0, vRight, 0);
     Vec3Mad(origin, deltaB, vRight, origin);
     AddLeanToPosition(origin, ps->viewangles[1], ps->leanf, 16.0, 20.0);
+
     v3 = ps->origin[2] + 8.0;
     if (origin[2] < (double)v3)
         origin[2] = ps->origin[2] + 8.0;
@@ -2011,8 +1939,9 @@ void __cdecl BG_LerpHudColors(const hudelem_s *elem, int32_t time, hudelem_color
         if (timeSinceFadeStarted < 0)
             timeSinceFadeStarted = 0;
         lerp = (double)timeSinceFadeStarted / (double)elem->fadeTime;
-        if (lerp < 0.0 || lerp > 1.0)
-            MyAssertHandler(".\\bgame\\bg_misc.cpp", 1890, 0, "%s\n\t(lerp) = %g", "(lerp >= 0.0f && lerp <= 1.0f)", lerp);
+
+        iassert(lerp >= 0.0f && lerp <= 1.0f);
+
         toColor->r = (int)((double)elem->fromColor.r + (double)(elem->color.r - elem->fromColor.r) * lerp);
         toColor->g = (int)((double)elem->fromColor.g + (double)(elem->color.g - elem->fromColor.g) * lerp);
         toColor->b = (int)((double)elem->fromColor.b + (double)(elem->color.b - elem->fromColor.b) * lerp);
@@ -2074,28 +2003,16 @@ void __cdecl BG_SetShellShockParmsFromDvars(shellshock_parms_t *parms)
     float v19; // [esp+E0h] [ebp-14h]
     int i; // [esp+F0h] [ebp-4h]
 
-    if (!parms)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 1943, 0, "%s", "parms");
+    iassert(parms);
+
     parms->screenBlend.blurredEffectTime = (int)(bg_shock_screenBlurBlendTime->current.value * 1000.0f);
     parms->screenBlend.blurredFadeTime = (int)(bg_shock_screenBlurBlendFadeTime->current.value * 1000.0f);
     parms->screenBlend.flashShotFadeTime = (int)(bg_shock_screenFlashShotFadeTime->current.value * 1000.0f);
     parms->screenBlend.flashWhiteFadeTime = (int)(bg_shock_screenFlashWhiteFadeTime->current.value * 1000.0f);
-    if (parms->screenBlend.blurredFadeTime <= 0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1949,
-            0,
-            "%s\n\t(parms->screenBlend.blurredFadeTime) = %i",
-            "(parms->screenBlend.blurredFadeTime > 0)",
-            parms->screenBlend.blurredFadeTime);
-    if (parms->screenBlend.blurredEffectTime <= 0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1950,
-            0,
-            "%s\n\t(parms->screenBlend.blurredEffectTime) = %i",
-            "(parms->screenBlend.blurredEffectTime > 0)",
-            parms->screenBlend.blurredEffectTime);
+
+    iassert(parms->screenBlend.blurredFadeTime > 0);
+    iassert(parms->screenBlend.blurredEffectTime > 0);
+
     parms->screenBlend.type = (ShockViewTypes)bg_shock_screenType->current.integer;
     parms->view.fadeTime = 3000;
     value = bg_shock_viewKickPeriod->current.value;
@@ -2134,65 +2051,20 @@ void __cdecl BG_SetShellShockParmsFromDvars(shellshock_parms_t *parms)
         else
             v2 = 1.0;
         parms->sound.channelvolume[i] = v2;
-        if (parms->sound.channelvolume[i] < 0.0 || parms->sound.channelvolume[i] > 1.0)
-            MyAssertHandler(
-                ".\\bgame\\bg_misc.cpp",
-                1983,
-                0,
-                "%s\n\t(parms->sound.channelvolume[i]) = %g",
-                "(parms->sound.channelvolume[i] >= 0 && parms->sound.channelvolume[i] <= 1)",
-                parms->sound.channelvolume[i]);
+        iassert(parms->sound.channelvolume[i] >= 0 && parms->sound.channelvolume[i] <= 1);
     }
-    if (parms->sound.fadeInTime <= 0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1986,
-            0,
-            "%s\n\t(parms->sound.fadeInTime) = %i",
-            "(parms->sound.fadeInTime > 0)",
-            parms->sound.fadeInTime);
-    if (parms->sound.fadeOutTime <= 0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1987,
-            0,
-            "%s\n\t(parms->sound.fadeOutTime) = %i",
-            "(parms->sound.fadeOutTime > 0)",
-            parms->sound.fadeOutTime);
-    if (parms->sound.loopFadeTime <= 0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1988,
-            0,
-            "%s\n\t(parms->sound.loopFadeTime) = %i",
-            "(parms->sound.loopFadeTime > 0)",
-            parms->sound.loopFadeTime);
-    if (parms->sound.drylevel < 0.0 || parms->sound.drylevel > 1.0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1989,
-            0,
-            "%s\n\t(parms->sound.drylevel) = %g",
-            "(parms->sound.drylevel >= 0 && parms->sound.drylevel <= 1)",
-            parms->sound.drylevel);
-    if (parms->sound.wetlevel < 0.0 || parms->sound.wetlevel > 1.0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1990,
-            0,
-            "%s\n\t(parms->sound.wetlevel) = %g",
-            "(parms->sound.wetlevel >= 0 && parms->sound.wetlevel <= 1)",
-            parms->sound.wetlevel);
+
+    iassert(parms->sound.fadeInTime > 0);
+    iassert(parms->sound.fadeOutTime > 0);
+    iassert(parms->sound.loopFadeTime > 0);
+    iassert(parms->sound.drylevel >= 0 && parms->sound.drylevel <= 1);
+    iassert(parms->sound.wetlevel >= 0 && parms->sound.wetlevel <= 1);
+
     parms->lookControl.affect = bg_shock_lookControl->current.enabled;
     parms->lookControl.fadeTime = (int)(bg_shock_lookControl_fadeTime->current.value * 1000.0f);
-    if (parms->lookControl.fadeTime <= 0)
-        MyAssertHandler(
-            ".\\bgame\\bg_misc.cpp",
-            1994,
-            0,
-            "%s\n\t(parms->lookControl.fadeTime) = %i",
-            "(parms->lookControl.fadeTime > 0)",
-            parms->lookControl.fadeTime);
+
+    iassert(parms->lookControl.fadeTime > 0);
+
     parms->lookControl.maxPitchSpeed = bg_shock_lookControl_maxpitchspeed->current.value;
     parms->lookControl.maxYawSpeed = bg_shock_lookControl_maxyawspeed->current.value;
     parms->lookControl.mouseSensitivity = bg_shock_lookControl_mousesensitivityscale->current.value;
@@ -2224,8 +2096,8 @@ int __cdecl BG_SaveShellShockDvars(const char *name)
 
 shellshock_parms_t *__cdecl BG_GetShellshockParms(uint32_t index)
 {
-    if (index >= 0x10)
-        MyAssertHandler(".\\bgame\\bg_misc.cpp", 2034, 0, "%s\n\t(index) = %i", "(index >= 0 && index < 16)", index);
+    iassert(index >= 0 && index < 16);
+
     return &bg_shellshockParms[index];
 }
 

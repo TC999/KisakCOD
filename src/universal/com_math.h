@@ -8,7 +8,10 @@
 #define ZERO_EPSILON 0.000001f
 #define WEIGHT_EPSILON EQUAL_EPSILON
 
+#define MAX_11BIT_FLT 0.99951172f // not a real name
+
 #define CLAMP(x, low, high) ((x) < (low) ? (low) : ((x) > (high) ? (high) : (x)))
+#define IS_NAN(x) _isnan(x)
 
 struct cplane_s // sizeof=0x14
 {                                       // ...
@@ -107,10 +110,10 @@ constexpr float4 g_swizzleXYZA = {
         0x00010203,
         0x04050607,
         0x08090A0B,
-        0x10111213
+        0x10111213 // this row goes over 16
     }
 };
-
+// each individual member never goes over 16
 constexpr float4 g_swizzleYZXW = {
     .u = {
         0x04050607,
@@ -256,12 +259,17 @@ bool __cdecl Vec3IsNormalized(const vec3r v);
 bool __cdecl Vec3Compare(const float *a, const float *b);
 
 float __cdecl Vec3Length(const vec3r v);
+void Vec2Copy(const vec2r from, vec2r to);
 void __cdecl Vec3Copy(const vec3r from, vec3r to);
+#define VectorCopy(...) \
+    typedef char VectorCopy_From_Quake_Is_Vec3Copy_same_args_though[-1]
 
 void __cdecl Vec3ProjectionCoords(const float *dir, int *xCoord, int *yCoord);
 void __cdecl Vec3NormalizeFast(float *v);
 float __cdecl Vec3NormalizeTo(const vec3r v, vec3r out);
 void __cdecl Vec3Mad(const vec3r start, float scale, const vec3r dir, vec3r result);
+#define VectorMA(...) \
+    typedef char VectorMA_From_Quake_Is_Vec3Mad[-1]
 void __cdecl Vec3Accum(const float *subTotal, const float *weight, const float *added, float *total);
 void __cdecl Vec3Rotate(const vec3r in, const mat3x3& matrix, vec3r out);
 void __cdecl Vec3RotateTranspose(const vec3r in, const mat3x3& matrix, vec3r out);
@@ -333,8 +341,8 @@ void __cdecl MatrixIdentity44(mat4x4 &out);
 void __cdecl MatrixSet44(mat4x4& out, const vec3r origin, const mat3x3& axis, float scale);
 
 void __cdecl MatrixMultiply(const mat3x3& in1, const mat3x3& in2, mat3x3& out);
-void __cdecl MatrixMultiply43(const mat4x3& in1, const mat4x3& int2, mat4x3& out);
-void __cdecl MatrixMultiply44(const mat4x4& in1, const mat4x4& int2, mat4x4& out);
+void __cdecl MatrixMultiply43(const mat4x3& in1, const mat4x3& in2, mat4x3& out);
+void __cdecl MatrixMultiply44(const mat4x4& in1, const mat4x4& in2, mat4x4& out);
 
 void __cdecl MatrixTranspose(const mat3x3& in, mat3x3& out);
 void __cdecl MatrixTranspose44(const mat4x4& in, mat4x4& out);
@@ -469,7 +477,7 @@ __forceinline static int COERCE_INT(float val) {
     return lol.v;
 }
 
-#define IS_NAN(x) (isnan(x))
+
 
 // LWSS: There appear to be a lot more functions on XBox.
 //__Eg_fltMin@@YAXXZ       8278c5f0 f   com_math_anglevectors.obj

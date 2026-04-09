@@ -38,9 +38,9 @@
 
 void Log(char const *format, ...)
 {
-    char buffer[4096];
+    char buffer[4096] = { 0 };
     static bool bFirst = true;
-    FILE *logFile;
+    FILE* logFile = NULL;
 
     if (bFirst) {
         logFile = fopen("F:\\swaglord.txt", "w"); // create new log
@@ -87,14 +87,14 @@ void __cdecl GScr_AddVector(const float* vVec)
 
 Scr_StringNode_s* __cdecl Scr_GetStringList(const char* filename, char** pBuf)
 {
-    Scr_StringNode_s* v3; // eax
-    Scr_StringNode_s* head; // [esp+4h] [ebp-1Ch] BYREF
-    char* buf; // [esp+8h] [ebp-18h]
-    char* end; // [esp+Ch] [ebp-14h]
-    int len; // [esp+10h] [ebp-10h]
-    int f; // [esp+14h] [ebp-Ch] BYREF
-    Scr_StringNode_s** pTail; // [esp+18h] [ebp-8h]
-    char* text; // [esp+1Ch] [ebp-4h]
+    Scr_StringNode_s* v3 = NULL; // eax
+    Scr_StringNode_s* head = NULL; // [esp+4h] [ebp-1Ch] BYREF
+    char* buf = NULL; // [esp+8h] [ebp-18h]
+    char* end = NULL; // [esp+Ch] [ebp-14h]
+    int len = 0; // [esp+10h] [ebp-10h]
+    int f = 0; // [esp+14h] [ebp-Ch] BYREF
+    Scr_StringNode_s** pTail = NULL; // [esp+18h] [ebp-8h]
+    char* text = NULL; // [esp+1Ch] [ebp-4h]
 
     len = FS_FOpenFileByMode((char*)filename, &f, FS_READ);
     if (len >= 0)
@@ -158,7 +158,7 @@ int __cdecl Scr_GetFunctionHandle(const char* filename, const char* name)
     id = FindObject(fileId);
     if (!id)
         MyAssertHandler(".\\script\\scr_main.cpp", 80, 0, "%s", "id");
-    str = SL_FindLowercaseString(name).prev;
+    str = SL_FindLowercaseString(name);
     if (!str)
         return 0;
     nameId = FindVariable(id, str);
@@ -1652,6 +1652,13 @@ uintptr_t Scr_ReadUnsigned(const char **pos)
     return value;
 }
 
+int Scr_ReadInt(const char **pos)
+{
+    int value = *(int *)*pos;
+    *pos += sizeof(int);
+    return value;
+}
+
 unsigned short Scr_ReadUnsignedShort(const char **pos)
 {
     unsigned short value = *(reinterpret_cast<const unsigned short *>(*pos));
@@ -1811,7 +1818,7 @@ unsigned int VM_ExecuteInternal()
     profileEnablePos = &profileEnable[0];
 
     ++g_script_error_level;
-    iassert(g_script_error_level <= 32);
+    bcassert(g_script_error_level, ARRAY_COUNT(g_script_error));
 
     //gParamCount = 0;
 #pragma region ERROR_CHECKER
@@ -1824,6 +1831,7 @@ unsigned int VM_ExecuteInternal()
         case OP_EvalArrayRef:
         case OP_ClearArray:
         case OP_EvalLocalVariableRef:
+            iassert(scrVarPub.error_index >= -1);
             if (scrVarPub.error_index < 0)
                 scrVarPub.error_index = 1;
             break;
@@ -1845,6 +1853,7 @@ unsigned int VM_ExecuteInternal()
         case OP_CallBuiltin4:
         case OP_CallBuiltin5:
         case OP_CallBuiltin:
+            iassert(scrVarPub.error_index >= 0);
             if (scrVarPub.error_index > 0)
                 scrVarPub.error_index = scrVmPub.outparamcount - scrVarPub.error_index + 1;
             break;
@@ -1856,6 +1865,7 @@ unsigned int VM_ExecuteInternal()
         case OP_CallBuiltinMethod4:
         case OP_CallBuiltinMethod5:
         case OP_CallBuiltinMethod:
+            iassert(scrVarPub.error_index >= -1);
             if (scrVarPub.error_index <= 0)
             {
                 if (scrVarPub.error_index < 0)
@@ -2227,7 +2237,7 @@ thread_return:
         case OP_GetInteger:
             INC_TOP();
             fs.top->type = VAR_INTEGER;
-            fs.top->u.intValue = Scr_ReadUnsigned(&fs.pos);
+            fs.top->u.intValue = Scr_ReadInt(&fs.pos);
             continue;
 
         case OP_GetFloat:
@@ -2293,7 +2303,7 @@ thread_return:
         case OP_GetAnimation:
             INC_TOP();
             fs.top->type = VAR_ANIMATION;
-            fs.top->u.pointerValue = Scr_ReadUnsigned(&fs.pos);
+            fs.top->u.intValue = Scr_ReadInt(&fs.pos);
             continue;
 
         case OP_GetGameRef:
@@ -3010,7 +3020,7 @@ function_call:
             continue;
 
         case OP_jump:
-            jumpOffset = Scr_ReadUnsigned(&fs.pos);
+            jumpOffset = Scr_ReadInt(&fs.pos);
             fs.pos += jumpOffset;
             continue;
 

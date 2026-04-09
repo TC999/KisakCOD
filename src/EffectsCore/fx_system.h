@@ -1363,7 +1363,7 @@ struct FxEditorElemDef // sizeof=0x858
     {
         FxElemVisuals visuals[32];
         FxElemMarkVisuals markVisuals[16];
-    }visualunion;
+    };
     int32_t trailSplitDist;
     int32_t trailRepeatDist;
     float trailScrollTime;
@@ -1423,5 +1423,5 @@ void FX_UnregisterAll();
 const FxEffectDef *__cdecl FX_Convert(const FxEditorEffectDef *editorEffect, void *(* Alloc)(uint32_t));
 int32_t __cdecl FX_DecideIntervalLimit(const FxEditorElemDef *edElemDef);
 
-extern const float fx_randomTable[];
+extern const float fx_randomTable[507];
 extern int32_t fx_serverVisClient;

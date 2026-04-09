@@ -885,7 +885,7 @@ unsigned int* __cdecl Com_AllocEvent(int size)
 }
 
 #ifdef KISAK_MP
-unsigned __int8 clientCommonMsgBuf[131072];
+unsigned __int8 clientCommonMsgBuf[0x20000];
 void __cdecl Com_ClientPacketEvent()
 {
     msg_t netmsg; // [esp+4Ch] [ebp-40h] BYREF
@@ -895,7 +895,7 @@ void __cdecl Com_ClientPacketEvent()
 
     PROF_SCOPED("Com_ClientPacketEvent");
 
-    MSG_Init(&netmsg, clientCommonMsgBuf, 0x20000);
+    MSG_Init(&netmsg, clientCommonMsgBuf, sizeof(clientCommonMsgBuf));
     Com_PacketEventLoop(NS_CLIENT1, &netmsg);
 
     if (!com_sv_running->current.enabled)
@@ -1800,7 +1800,6 @@ static void Com_AttractMode(int localClientNum)
 void __cdecl Com_Frame_Try_Block_Function()
 {
     float deltaTime; // [esp+4h] [ebp-78h]
-    int v4; // [esp+8h] [ebp-74h]
     int lastFrameIndex; // [esp+68h] [ebp-14h]
     int msec; // [esp+6Ch] [ebp-10h]
     int localClientNum; // [esp+70h] [ebp-Ch]
@@ -1872,6 +1871,7 @@ void __cdecl Com_Frame_Try_Block_Function()
             NET_Sleep(1);
         }
 
+        int v4;
         if (com_frameTime - com_lastFrameTime[lastFrameIndex] < minMsec)
             v4 = minMsec;
         else

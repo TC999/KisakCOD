@@ -19,6 +19,18 @@ struct GfxConfiguration;
 static_assert(((MAX_PARSE_ENTITIES) & (MAX_PARSE_ENTITIES - 1)) == 0, "MAX_PARSE_ENTITIES must be power of 2");
 static_assert(((MAX_PARSE_CLIENTS) & (MAX_PARSE_CLIENTS - 1)) == 0, "MAX_PARSE_CLIENTS must be power of 2");
 
+enum svc_ops_e : __int32
+{
+    svc_nop = 0x0,
+    svc_gamestate = 0x1,
+    svc_configstring = 0x2,
+    svc_baseline = 0x3,
+    svc_serverCommand = 0x4,
+    svc_download = 0x5,
+    svc_snapshot = 0x6,
+    svc_EOF = 0x7,
+};
+
 struct serverAddress_t // sizeof=0x6
 {                                       // ...
     uint8_t ip[4];              // ...
@@ -753,8 +765,6 @@ extern ping_t cl_pinglist[16];
 extern BOOL g_waitingForServer;
 extern bool cl_waitingOnServerToLoadMap[1];
 extern BOOL cl_serverLoadingMap;
-
-#define MAX_CLIENTS 64
 
 #define STATIC_MAX_LOCAL_CLIENTS 1 // LWSS Add
 

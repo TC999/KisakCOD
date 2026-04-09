@@ -524,36 +524,38 @@ void  R_GenerateWorldOutdoorLookupMatrix(
     GfxCmdBufSourceState *source,
     float (*outMatrix)[4])
 {
-    GfxMatrix v3; // [esp-Ch] [ebp-8Ch] BYREF
-    float world_52[4]; // [esp+34h] [ebp-4Ch] BYREF
-    float zInTimesInvViewTimesOutdoorLookup_4[4]; // [esp+44h] [ebp-3Ch] BYREF
-    float zInTimesInvView_4[4]; // [esp+54h] [ebp-2Ch] BYREF
-    //GfxCmdBufSourceState *matrix0; // [esp+64h] [ebp-1Ch]
-    const void *zIn_8; // [esp+68h] [ebp-18h]
-    float zIn_12; // [esp+6Ch] [ebp-14h]
-    float awayBias; // [esp+70h] [ebp-10h]
+    GfxMatrix worldMatrix; // [esp-Ch] [ebp-8Ch] BYREF
+    float worldOffset[4]; // [esp+34h] [ebp-4Ch] BYREF
+    float zInTimesInvViewTimesOutdoorLookup[4]; // [esp+44h] [ebp-3Ch] BYREF
+    float zInTimesInvView[4]; // [esp+54h] [ebp-2Ch] BYREF
     GfxCodeMatrices *activeMatrices; // [esp+74h] [ebp-Ch]
-    float downBias; // [esp+78h] [ebp-8h]
-    float retaddr; // [esp+80h] [ebp+0h]
 
-    //downBias = retaddr;
-    awayBias = r_outdoorAwayBias->current.value;
-    zIn_12 = r_outdoorDownBias->current.value;
-    zIn_8 = source;
-    //matrix0 = R_GetCodeMatrix(source, 63u, 0);
-    zInTimesInvView_4[0] = 0.0;
-    zInTimesInvView_4[1] = 0.0;
-    zInTimesInvView_4[2] = -awayBias;
-    zInTimesInvView_4[3] = 0.0;
-    MatrixTransformVector44(zInTimesInvView_4, *(const mat4x4*)R_GetCodeMatrix(source, 63u, 0), zInTimesInvViewTimesOutdoorLookup_4);
-    zInTimesInvViewTimesOutdoorLookup_4[2] = zInTimesInvViewTimesOutdoorLookup_4[2] + zIn_12;
+    const float awayBias = r_outdoorAwayBias->current.value;
+    const float downBias = r_outdoorDownBias->current.value;
+
+    zInTimesInvView[0] = 0.0;
+    zInTimesInvView[1] = 0.0;
+    zInTimesInvView[2] = -awayBias;
+    zInTimesInvView[3] = 0.0;
+
+    MatrixTransformVector44(zInTimesInvView, *(const mat4x4*)R_GetCodeMatrix(source, 63u, 0), zInTimesInvViewTimesOutdoorLookup);
+
+    zInTimesInvViewTimesOutdoorLookup[2] += downBias;
+
     iassert(rgp.world);
-    MatrixTransformVector44(zInTimesInvViewTimesOutdoorLookup_4, rgp.world->outdoorLookupMatrix, world_52);
+
+    MatrixTransformVector44(zInTimesInvViewTimesOutdoorLookup, rgp.world->outdoorLookupMatrix, worldOffset);
+
     //iassert(R_IsMatrixConstantUpToDate(source, CONST_SRC_CODE_WORLD_MATRIX));
-    qmemcpy(&v3, zIn_8, sizeof(v3));
-    Vec3Add(v3.m[3], source->eyeOffset, v3.m[3]);
-    MatrixMultiply44(v3.m, rgp.world->outdoorLookupMatrix, *(mat4x4*)outMatrix);
-    Vec4Add(&(*outMatrix)[12], world_52, &(*outMatrix)[12]);
+
+    qmemcpy(&worldMatrix, source, sizeof(worldMatrix));
+
+    Vec3Add(worldMatrix.m[3], source->eyeOffset, worldMatrix.m[3]);
+
+    MatrixMultiply44(worldMatrix.m, rgp.world->outdoorLookupMatrix, *(mat4x4*)outMatrix);
+
+    Vec4Add(&(*outMatrix)[12], worldOffset, &(*outMatrix)[12]);
+
     source->constVersions[86] = source->matrixVersions[7];
 }
 
@@ -2141,71 +2143,52 @@ void __cdecl R_SetViewportValues(GfxCmdBufSourceState *source, int x, int y, int
 
 void __cdecl R_UpdateViewport(GfxCmdBufSourceState *source, GfxViewport *viewport)
 {
-    float v2; // [esp+10h] [ebp-4Ch]
-    float renderTargetWidth; // [esp+18h] [ebp-44h]
-    float renderTargetHeight; // [esp+1Ch] [ebp-40h]
-    float v5; // [esp+24h] [ebp-38h]
-    float v6; // [esp+28h] [ebp-34h]
-    float v7; // [esp+2Ch] [ebp-30h]
-    float v8; // [esp+30h] [ebp-2Ch]
-    float lookupScale; // [esp+34h] [ebp-28h]
-    float lookupScale_4; // [esp+38h] [ebp-24h]
+    float lookupScale[2]; // v7, v8 [esp+34h] [ebp-28h]
     float invWidth; // [esp+3Ch] [ebp-20h]
     float invHeight; // [esp+40h] [ebp-1Ch]
-    float lookupOffset; // [esp+54h] [ebp-8h]
-    float lookupOffseta; // [esp+54h] [ebp-8h]
-    float lookupOffset_4; // [esp+58h] [ebp-4h]
-    float lookupOffset_4a; // [esp+58h] [ebp-4h]
+    float lookupOffset[2]; // [esp+54h] [ebp-8h]
 
     iassert( source );
     iassert( source->viewMode != VIEW_MODE_NONE );
+
     source->viewportIsDirty = 0;
-    if (source->renderTargetWidth <= 0)
-        MyAssertHandler(
-            ".\\r_state.cpp",
-            1256,
-            0,
-            "%s\n\t(source->renderTargetWidth) = %i",
-            "(source->renderTargetWidth > 0)",
-            source->renderTargetWidth);
-    if (source->renderTargetHeight <= 0)
-        MyAssertHandler(
-            ".\\r_state.cpp",
-            1257,
-            0,
-            "%s\n\t(source->renderTargetHeight) = %i",
-            "(source->renderTargetHeight > 0)",
-            source->renderTargetHeight);
+
+    iassert(source->renderTargetWidth > 0);
+    iassert(source->renderTargetHeight > 0);
+
     invWidth = 1.0 / (double)source->renderTargetWidth;
     invHeight = 1.0 / (double)source->renderTargetHeight;
-    v7 = invWidth * (double)viewport->width;
-    v8 = invHeight * (double)viewport->height;
-    lookupScale = 0.5 * v7;
-    lookupScale_4 = 0.5 * v8;
-    v5 = invWidth * (double)viewport->x;
-    v6 = invHeight * (double)viewport->y;
-    lookupOffset = 0.5 * v7 + v5;
-    lookupOffset_4 = 0.5 * v8 + v6;
-    lookupOffseta = invWidth * 0.5 + lookupOffset;
-    lookupOffset_4a = invHeight * 0.5 + lookupOffset_4;
-    renderTargetWidth = (float)source->renderTargetWidth;
-    renderTargetHeight = (float)source->renderTargetHeight;
-    source->input.consts[10][0] = renderTargetWidth;
-    source->input.consts[10][1] = renderTargetHeight;
-    source->input.consts[10][2] = invWidth;
-    source->input.consts[10][3] = invHeight;
-    R_DirtyCodeConstant(source, CONST_SRC_CODE_RENDER_TARGET_SIZE);
-    v2 = -lookupScale_4;
-    source->input.consts[51][0] = lookupScale;
-    source->input.consts[51][1] = v2;
-    source->input.consts[51][2] = 0.0;
-    source->input.consts[51][3] = 1.0;
-    R_DirtyCodeConstant(source, CONST_SRC_CODE_CLIP_SPACE_LOOKUP_SCALE);
-    source->input.consts[52][0] = lookupOffseta;
-    source->input.consts[52][1] = lookupOffset_4a;
-    source->input.consts[52][2] = 0.0;
-    source->input.consts[52][3] = 0.0;
-    R_DirtyCodeConstant(source, CONST_SRC_CODE_CLIP_SPACE_LOOKUP_OFFSET);
+
+    lookupScale[0] = 0.5 * invWidth * (double)viewport->width;
+    lookupScale[1] = 0.5 * invHeight * (double)viewport->height;
+
+    lookupOffset[0] = lookupScale[0] + (invWidth * (double)viewport->x);
+    lookupOffset[1] = lookupScale[1] + (invHeight * (double)viewport->y);
+
+    lookupOffset[0] += invWidth * 0.5;
+    lookupOffset[1] += invHeight * 0.5;
+
+    R_SetCodeConstant(source,
+        CONST_SRC_CODE_RENDER_TARGET_SIZE,
+        (float)source->renderTargetWidth,
+        (float)source->renderTargetHeight,
+        invWidth,
+        invHeight
+    );
+    R_SetCodeConstant(source,
+        CONST_SRC_CODE_CLIP_SPACE_LOOKUP_SCALE,
+        lookupScale[0],
+        -lookupScale[1],
+        0.0,
+        1.0
+    );
+    R_SetCodeConstant(source,
+        CONST_SRC_CODE_CLIP_SPACE_LOOKUP_OFFSET,
+        lookupOffset[0],
+        lookupOffset[1],
+        0.0,
+        0.0
+    );
 }
 
 void __cdecl R_DisableSampler(GfxCmdBufState *state, unsigned int samplerIndex)
@@ -2644,21 +2627,13 @@ void R_DrawCall(
 
 void __cdecl R_SetCodeConstant(GfxCmdBufSourceState *source, CodeConstant constant, float x, float y, float z, float w)
 {
-    float *v6; // [esp+0h] [ebp-4h]
+    bcassert(constant, CONST_SRC_CODE_COUNT_FLOAT4);
 
-    if (constant >= 0x3A)
-        MyAssertHandler(
-            "c:\\trees\\cod3\\src\\gfx_d3d\\r_state.h",
-            495,
-            0,
-            "constant doesn't index CONST_SRC_CODE_COUNT_FLOAT4\n\t%i not in [0, %i)",
-            constant,
-            58);
-    v6 = source->input.consts[constant];
-    v6[0] = x;
-    v6[1] = y;
-    v6[2] = z;
-    v6[3] = w;
+    source->input.consts[constant][0] = x;
+    source->input.consts[constant][1] = y;
+    source->input.consts[constant][2] = z;
+    source->input.consts[constant][3] = w;
+
     R_DirtyCodeConstant(source, constant);
 }
 

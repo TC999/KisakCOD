@@ -290,8 +290,10 @@ void __cdecl G_InitGame(int32_t levelTime, int32_t randomSeed, int32_t restart, 
         v4->backup_text = 0;
     }
     Mantle_CreateAnims((void *(__cdecl *)(int))Hunk_AllocXAnimServer);
+
     iassert(bgs == NULL);
     bgs = &level_bgs;
+
     if (!restart)
     {
         memset(&bgs->animScriptData, 0, sizeof(animScriptData_t));
@@ -301,9 +303,11 @@ void __cdecl G_InitGame(int32_t levelTime, int32_t randomSeed, int32_t restart, 
         BG_LoadAnim();
         G_LoadAnimTreeInstances();
     }
+
     SV_GetConfigstring(0x13u, buffer, 1024);
     Info_SetValueForKey(buffer, "winner", "0");
     SV_SetConfigstring(19, buffer);
+
     memset(g_entities, 0, sizeof(g_entities));
     level.gentities = g_entities;
     level.maxclients = g_maxclients->current.integer;
@@ -311,10 +315,12 @@ void __cdecl G_InitGame(int32_t levelTime, int32_t randomSeed, int32_t restart, 
     level.clients = g_clients;
     for (i = 0; i < level.maxclients; ++i)
         g_entities[i].client = &level.clients[i];
+
     level.num_entities = 72;
     level.firstFreeEnt = 0;
     level.lastFreeEnt = 0;
-    SV_LocateGameData(level.gentities, 72, 628, &level.clients->ps, 12676);
+    SV_LocateGameData(level.gentities, level.num_entities, 628, &level.clients->ps, 12676);
+
     G_ParseHitLocDmgTable();
     BG_LoadPenetrationDepthTable();
     G_VehiclesInit(restart);
@@ -774,26 +780,12 @@ DObj_s *__cdecl G_GetDObj(uint32_t handle, int32_t unusedLocalClientNum)
     return Com_GetServerDObj(handle);
 }
 
-XAnimTree_s *G_LoadAnimTreeInstances()
+void G_LoadAnimTreeInstances()
 {
-    XAnimTree_s *result; // eax
-    XAnim_s *generic_human; // [esp+0h] [ebp-8h]
-    int32_t i; // [esp+4h] [ebp-4h]
-    int32_t ia; // [esp+4h] [ebp-4h]
-
-    result = (XAnimTree_s *)level_bgs.generic_human.tree.anims;
-    generic_human = level_bgs.generic_human.tree.anims;
-    for (i = 0; i < 64; ++i)
-    {
-        result = XAnimCreateTree(generic_human, (void *(__cdecl *)(int))Hunk_AllocXAnimServer);
-        level_bgs.clientinfo[i].pXAnimTree = result;
-    }
-    for (ia = 0; ia < 8; ++ia)
-    {
-        result = XAnimCreateTree(generic_human, (void *(__cdecl *)(int))Hunk_AllocXAnimServer);
-        g_scr_data.playerCorpseInfo[ia].tree = result;
-    }
-    return result;
+    for (int i = 0; i < 64; ++i)
+        level_bgs.clientinfo[i].pXAnimTree = XAnimCreateTree(level_bgs.generic_human.tree.anims, (void *(__cdecl *)(int))Hunk_AllocXAnimServer);
+    for (int i = 0; i < 8; ++i)
+        g_scr_data.playerCorpseInfo[i].tree = XAnimCreateTree(level_bgs.generic_human.tree.anims, (void *(__cdecl *)(int))Hunk_AllocXAnimServer);
 }
 
 void G_PrintAllFastFileErrors()

@@ -21,7 +21,28 @@ static scrStringGlob_t scrStringGlob; // 0x244E300
 
 #define SCR_SYS_GAME 1
 
-HashEntry_unnamed_type_u __cdecl Scr_AllocString(char *s, int sys)
+static unsigned int __cdecl GetHashCode(const char *str, unsigned int len)
+{
+	unsigned int hash; // [esp+4h] [ebp-8h]
+
+	if (len >= 0x100)
+	{
+		hash = len >> 2;
+	}
+	else
+	{
+		hash = 0;
+		while (len)
+		{
+			hash = *str++ + 31 * hash;
+			--len;
+		}
+	}
+
+	return hash % (STRINGLIST_SIZE-1) + 1;
+}
+
+unsigned int __cdecl Scr_AllocString(char *s, int sys)
 {
 	iassert(sys == SCR_SYS_GAME);
 	return SL_GetString(s, 1);
@@ -40,7 +61,7 @@ void SL_Init()
 	for (unsigned int hash = 1; hash < STRINGLIST_SIZE; ++hash)
 	{
 		iassert(!(hash & HASH_STAT_MASK));
-		scrStringGlob.hashTable[hash].status_next = 0;
+		scrStringGlob.hashTable[hash].status_next = HASH_STAT_FREE; // (0)
 		scrStringGlob.hashTable[prev].status_next |= hash;
 		scrStringGlob.hashTable[hash].u.prev = prev;
 		prev = hash;
@@ -83,8 +104,8 @@ void SL_AddUserInternal(RefString* refStr, unsigned int user)
 		volatile int Comperand;
 		do
 			Comperand = refStr->data;
-		while (InterlockedCompareExchange((volatile LONG*)refStr, Comperand | (user << 16), Comperand) != Comperand);
-		InterlockedIncrement((volatile LONG*)refStr);
+		while (InterlockedCompareExchange(&refStr->data, Comperand | (user << 16), Comperand) != Comperand);
+		InterlockedIncrement(&refStr->data);
 	}
 }
 
@@ -102,7 +123,7 @@ void SL_AddRefToString(unsigned int stringValue)
 	}
 
 	RefString* refStr = GetRefString(stringValue);
-	InterlockedIncrement((volatile LONG*)refStr);
+	InterlockedIncrement(&refStr->data);
 
 	iassert(refStr->refCount);
 }
@@ -209,7 +230,7 @@ unsigned int SL_GetString_(const char* str, unsigned int user, int type)
 	return SL_GetStringOfSize(str, user, strlen(str) + 1, type);
 }
 
-HashEntry_unnamed_type_u SL_GetStringOfSize(const char* str, unsigned int user, unsigned int len, int type)
+unsigned int SL_GetStringOfSize(const char* str, unsigned int user, unsigned int len, int type)
 {
 	PROF_SCOPED("SL_GetStringOfSize");
 
@@ -293,7 +314,7 @@ HashEntry_unnamed_type_u SL_GetStringOfSize(const char* str, unsigned int user, 
 		newEntry = &scrStringGlob.hashTable[newIndex];
 		iassert((newEntry->status_next & HASH_STAT_MASK) == HASH_STAT_FREE);
 
-		unsigned int newNext = newEntry->status_next;
+		unsigned int newNext = (unsigned __int16)newEntry->status_next;
 
 		scrStringGlob.hashTable[0].status_next = newNext;
 		scrStringGlob.hashTable[newNext].u.prev = 0;
@@ -447,9 +468,9 @@ static unsigned int FindStringOfSize(const char* str, unsigned int len)
 
 			if (refStr->byteLen == len && !memcmp(refStr->str, str, len))
 			{
-				scrStringGlob.hashTable[prev].status_next = (unsigned __int16)newEntry->status_next | scrStringGlob.hashTable[prev].status_next & 0x30000;
-				newEntry->status_next = (unsigned __int16)entry->status_next | newEntry->status_next & 0x30000;
-				entry->status_next = newIndex | entry->status_next & 0x30000;
+				scrStringGlob.hashTable[prev].status_next = (unsigned __int16)newEntry->status_next | scrStringGlob.hashTable[prev].status_next & HASH_STAT_MASK;
+				newEntry->status_next = (unsigned __int16)entry->status_next | newEntry->status_next & HASH_STAT_MASK;
+				entry->status_next = newIndex | entry->status_next & HASH_STAT_MASK;
 				stringValue = newEntry->u.prev;
 				newEntry->u.prev = entry->u.prev;
 				entry->u.prev = stringValue;
@@ -540,12 +561,20 @@ unsigned int SL_GetString(const char* str, unsigned int user)
 	return SL_GetString_(str, user, 6);
 }
 
+//char *mt_buffer;  //     scrMemTreePub.mt_buffer = (char*)&scrMemTreeGlob.nodes;
+
+
 int SL_GetRefStringLen(RefString* refString)
 {
-	int len; // [esp+0h] [ebp-4h]
+	int len = refString->byteLen - 1;
 
-	for (len = (unsigned __int8)(HIBYTE(refString->data) - 1); refString->str[len]; len += 256)
-		;
+	while (refString->str[len])
+		len += 256;
+
+	// lwss add some asserts for sanity
+	iassert((uintptr_t)refString->str >= (uintptr_t)&scrMemTreeGlob.nodes[0] && (uintptr_t)refString->str < (uintptr_t)&scrMemTreeGlob.nodes[MEMORY_NODE_COUNT]);
+	iassert((uintptr_t)&refString->str[len + 1] >= (uintptr_t)&scrMemTreeGlob.nodes[0] && (uintptr_t)&refString->str[len + 1] < (uintptr_t)&scrMemTreeGlob.nodes[MEMORY_NODE_COUNT]);
+
 	return len;
 }
 
@@ -630,7 +659,7 @@ static void SL_FreeString(unsigned int stringValue, RefString* refStr, unsigned 
 			{
 				entry->status_next = (unsigned __int16)newEntry->status_next | HASH_STAT_HEAD;
 				entry->u.prev = newEntry->u.prev;
-				scrStringGlob.nextFreeEntry = &scrStringGlob.hashTable[index];
+				scrStringGlob.nextFreeEntry = entry; 
 			}
 		}
 		else
@@ -648,7 +677,7 @@ static void SL_FreeString(unsigned int stringValue, RefString* refStr, unsigned 
 				newIndex = (unsigned __int16)newEntry->status_next;
 				newEntry = &scrStringGlob.hashTable[newIndex];
 			}
-			scrStringGlob.hashTable[prev].status_next = (unsigned __int16)newEntry->status_next | scrStringGlob.hashTable[prev].status_next & HASH_STAT_MASK;
+			scrStringGlob.hashTable[prev].status_next = (unsigned __int16)newEntry->status_next | (scrStringGlob.hashTable[prev].status_next & HASH_STAT_MASK);
 		}
 
 		iassert((newEntry->status_next & HASH_STAT_MASK) != HASH_STAT_FREE);
@@ -690,7 +719,7 @@ unsigned int SL_ConvertFromString(const char* str)
 	return SL_ConvertFromRefString(refStr);
 }
 
-HashEntry_unnamed_type_u SL_FindLowercaseString(const char* str)
+unsigned int SL_FindLowercaseString(const char* str)
 {
 	char stra[8196]; // [esp+5Ch] [ebp-2010h] BYREF
 	unsigned int len; // [esp+2064h] [ebp-8h]
@@ -716,7 +745,7 @@ void SL_RemoveRefToStringOfSize(unsigned int stringValue, unsigned int len)
 
 	RefString* refStr = GetRefString(stringValue);
 
-	if (InterlockedDecrement((volatile LONG*)refStr) << 16)
+	if (InterlockedDecrement(&refStr->data) << 16) // refcount
 	{
 		if (scrStringDebugGlob)
 		{
@@ -767,11 +796,11 @@ void __cdecl Scr_SetString(unsigned __int16 *to, unsigned int from)
 	*to = from;
 }
 
-HashEntry_unnamed_type_u __cdecl SL_ConvertToLowercase(unsigned int stringValue, unsigned int user, int type)
+unsigned int __cdecl SL_ConvertToLowercase(unsigned int stringValue, unsigned int user, int type)
 {
 	const char *v4; // [esp+4Ch] [ebp-2014h]
 	char str[8192]; // [esp+50h] [ebp-2010h] BYREF
-	HashEntry_unnamed_type_u v6; // [esp+2054h] [ebp-Ch]
+	unsigned int stringOfSize; // [esp+2054h] [ebp-Ch]
 	unsigned int len; // [esp+2058h] [ebp-8h]
 	unsigned int i; // [esp+205Ch] [ebp-4h]
 
@@ -783,13 +812,13 @@ HashEntry_unnamed_type_u __cdecl SL_ConvertToLowercase(unsigned int stringValue,
 		v4 = SL_ConvertToString(stringValue);
 		for (i = 0; i < len; ++i)
 			str[i] = tolower(v4[i]);
-		v6.prev = SL_GetStringOfSize(str, user, len, type).prev;
+		stringOfSize = SL_GetStringOfSize(str, user, len, type);
 		SL_RemoveRefToString(stringValue);
-		return v6;
+		return stringOfSize;
 	}
 	else
 	{
-		return (HashEntry_unnamed_type_u)stringValue;
+		return stringValue;
 	}
 }
 
@@ -805,24 +834,24 @@ void __cdecl CreateCanonicalFilename(char *newFilename, const char *filename, in
 		{
 			do
 				c = *filename++;
-			while (c == 92);
-		} while (c == 47);
-		while (c >= 0x20)
+			while (c == '\\');
+		} while (c == '/');
+		while (c >= ' ')
 		{
 			*newFilename++ = tolower(c);
 			if (!--count)
 				Com_Error(ERR_DROP, "Filename %s exceeds maximum length of %d", filename, oldCount);
-			if (c == 47)
+			if (c == '/')
 				break;
 			c = *filename++;
-			if (c == 92)
-				c = 47;
+			if (c == '\\')
+				c = '/';
 		}
 	} while (c);
 	*newFilename = 0;
 }
 
-HashEntry_unnamed_type_u __cdecl Scr_CreateCanonicalFilename(const char *filename)
+unsigned int __cdecl Scr_CreateCanonicalFilename(const char *filename)
 {
 	char newFilename[1028]; // [esp+0h] [ebp-408h] BYREF
 
