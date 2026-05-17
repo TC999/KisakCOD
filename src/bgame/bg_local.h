@@ -487,6 +487,7 @@ struct clientControllers_t // sizeof=0x60
 };
 static_assert(sizeof(clientControllers_t) == 0x60);
 
+#ifdef KISAK_MP
 struct clientInfo_t // sizeof=0x4CC
 {                                       // ...
     int32_t infoValid;                      // ...
@@ -560,6 +561,7 @@ struct bgs_t // sizeof=0xADD08
     clientInfo_t clientinfo[64];        // ...
 };
 static_assert(sizeof(bgs_t) == 0xADD08);
+#endif
 
 struct hudElemSoundInfo_t // sizeof=0x4
 {                                       // ...
@@ -949,9 +951,8 @@ enum pmtype_t : __int32
     PM_NORMAL_LINKED = 0x1,
     PM_NOCLIP = 0x2,
     PM_UFO = 0x3,
-    PM_MPVIEWER = 0x4,
-    PM_DEAD = 0x5,
-    PM_DEAD_LINKED = 0x6,
+    PM_DEAD = 0x4,
+    PM_DEAD_LINKED = 0x5,
 };
 inline pmtype_t &operator--(pmtype_t &e) {
     e = static_cast<pmtype_t>(static_cast<int>(e) - 1);
@@ -1104,6 +1105,7 @@ struct CEntTurretInfo // sizeof=0x10
 };
 static_assert(sizeof(CEntTurretInfo) == 0x10);
 
+#ifdef KISAK_MP
 struct CEntVehicleInfo // sizeof=0x24
 {                                       // ...
     int16_t pitch;
@@ -1123,6 +1125,25 @@ struct CEntVehicleInfo // sizeof=0x24
     // padding byte
 };
 static_assert(sizeof(CEntVehicleInfo) == 0x24);
+#elif KISAK_SP
+struct CEntVehicleInfo // sizeof=0x28
+{
+    int16_t pitch;          // 0x00
+    int16_t yaw;            // 0x02
+    int16_t roll;           // 0x04
+    int16_t barrelPitch;    // 0x06
+    int16_t steerYaw;       // 0x08
+    // pad                  // 0x0A
+    float time;             // 0x0C  (also reached via the actor union as pose->actor.height)
+    uint16_t wheelFraction[6]; // 0x10
+    uint8_t wheelBoneIndex[6]; // 0x1C
+    uint8_t tag_body;       // 0x22
+    uint8_t tag_turret;     // 0x23
+    uint8_t tag_barrel;     // 0x24
+    // pad[3]               // 0x25
+};
+static_assert(sizeof(CEntVehicleInfo) == 0x28);
+#endif
 
 struct CEntFx // sizeof=0x8  (SP/MP Same)
 {                                       // ...
@@ -1933,7 +1954,7 @@ void __cdecl PM_UpdateLean(
     playerState_s *ps,
     float msec,
     usercmd_s *cmd,
-    void(__cdecl *capsuleTrace)(trace_t *, float *, float *, float *, float *, int32_t));
+    void(__cdecl *capsuleTrace)(trace_t *, const float *, const float *, const float *, const float *, int32_t, int32_t));
 void __cdecl PM_UpdateViewAngles(playerState_s *ps, float msec, usercmd_s *cmd, uint8_t handler);
 void __cdecl PM_UpdateViewAngles_Clamp(playerState_s *ps, usercmd_s *cmd);
 void __cdecl PM_UpdateViewAngles_RangeLimited(playerState_s *ps, float oldYaw);
@@ -1997,7 +2018,6 @@ int32_t __cdecl PM_GetStanceEx(int32_t stance, int32_t backward);
 void __cdecl PM_Footstep_LadderMove(pmove_t *pm, pml_t *pml);
 void __cdecl PM_Footsteps_NotMoving(pmove_t *pm, int32_t stance);
 uint32_t __cdecl PM_GetFlinchAnim(uint32_t flinchAnimDir);
-int32_t __cdecl PM_Footsteps_TurnAnim(clientInfo_t *ci);
 scriptAnimMoveTypes_t __cdecl PM_GetNotMovingAnim(int32_t stance, int32_t turnAdjust);
 bool __cdecl PM_ShouldFlinch(playerState_s *ps);
 double __cdecl PM_GetMaxSpeed(pmove_t *pm, int32_t walking, int32_t sprinting);
@@ -2006,6 +2026,7 @@ int32_t __cdecl PM_GetStanceIdleAnim(char stanceFlag);
 int32_t __cdecl PM_GetMoveAnim(playerState_s *ps, PmStanceFrontBack stance, int32_t walking, int32_t sprinting);
 void __cdecl PM_SetStrafeCondition(pmove_t *pm);
 #ifdef KISAK_MP
+int32_t __cdecl PM_Footsteps_TurnAnim(clientInfo_t *ci);
 void __cdecl PM_Footstep_NotTryingToMove(pmove_t *pm);
 #endif
 void __cdecl PM_FoliageSounds(pmove_t *pm);

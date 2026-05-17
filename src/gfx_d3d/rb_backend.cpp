@@ -394,45 +394,20 @@ void __cdecl R_Resolve(GfxCmdBufContext context, GfxImage *image)
     IDirect3DSurface9 *imageSurface; // [esp+8h] [ebp-4h]
 
     iassert( image );
-    if (image->width != gfxRenderTargets[context.state->renderTargetId].width)
-    {
-        v2 = va("%s,%i", image->name, context.state->renderTargetId);
-        MyAssertHandler(
-            ".\\rb_backend.cpp",
-            661,
-            0,
-            "%s\n\t%s",
-            "image->width == gfxRenderTargets[context.state->renderTargetId].width",
-            v2);
-    }
-    if (image->height != gfxRenderTargets[context.state->renderTargetId].height)
-    {
-        v3 = va("%s,%i", image->name, context.state->renderTargetId);
-        MyAssertHandler(
-            ".\\rb_backend.cpp",
-            662,
-            0,
-            "%s\n\t%s",
-            "image->height == gfxRenderTargets[context.state->renderTargetId].height",
-            v3);
-    }
+    iassert(image->width == gfxRenderTargets[context.state->renderTargetId].width);
+    iassert(image->height == gfxRenderTargets[context.state->renderTargetId].height);
     iassert( image != gfxRenderTargets[context.state->renderTargetId].image );
+
     imageSurface = Image_GetSurface(image);
     iassert( imageSurface );
+
     do
     {
         if (r_logFile && r_logFile->current.integer)
-            RB_LogPrint(
-                "context.state->prim.device->StretchRect( gfxRenderTargets[context.state->renderTargetId].surface.color, 0, image"
-                "Surface, 0, D3DTEXF_LINEAR )\n");
-        //hr = context.state->prim.device->StretchRect(
-        //    context.state->prim.device,
-        //    gfxRenderTargets[context.state->renderTargetId].surface.color,
-        //    0,
-        //    imageSurface,
-        //    0,
-        //    D3DTEXF_LINEAR);
+            RB_LogPrint("context.state->prim.device->StretchRect( gfxRenderTargets[context.state->renderTargetId].surface.color, 0, imageSurface, 0, D3DTEXF_LINEAR )\n");
+
         hr = context.state->prim.device->StretchRect(gfxRenderTargets[context.state->renderTargetId].surface.color, 0, imageSurface, 0, D3DTEXF_LINEAR);
+
         if (hr < 0)
         {
             do
@@ -452,7 +427,6 @@ void __cdecl R_Resolve(GfxCmdBufContext context, GfxImage *image)
     {
         if (r_logFile && r_logFile->current.integer)
             RB_LogPrint("imageSurface->Release()\n");
-        //v6 = imageSurface->Release(imageSurface);
         v6 = imageSurface->Release();
         if (v6 < 0)
         {
@@ -792,7 +766,7 @@ unsigned int __cdecl R_RenderDrawSurfListMaterial(const GfxDrawSurfListArgs *lis
 
     drawSurfCount = listArgs->info->drawSurfCount - listArgs->firstDrawSurfIndex;
     drawSurfList = &listArgs->info->drawSurfs[listArgs->firstDrawSurfIndex];
-    drawSurf.fields = drawSurfList->fields;
+    drawSurf.packed = drawSurfList->packed;
     if (!R_SetupMaterial(listArgs->context, &prepassContext, listArgs->info, drawSurf))
         return R_SkipDrawSurfListMaterial(drawSurfList, drawSurfCount);
     isPixelCostEnabled = pixelCostMode != GFX_PIXEL_COST_MODE_OFF;
@@ -986,7 +960,7 @@ void __cdecl RB_BlendSavedScreenBlurredCmd(GfxRenderCommandExecState *execState)
             cmd->t0,
             s1,
             t1,
-            ((unsigned __int8)(int)(alpha * 255.0f) << 24) | 0xFFFFFF,
+            ((unsigned __int8)SnapFloatToInt(alpha * 255.0f) << 24) | 0xFFFFFF,
             GFX_PRIM_STATS_CODE);
     }
     execState->cmd = (char *)execState->cmd + cmd->header.byteCount;
@@ -1029,10 +1003,10 @@ void __cdecl RB_BlendSavedScreenFlashedCmd(GfxRenderCommandExecState *execState)
         cmd->t0,
         s1,
         t1,
-        ((unsigned __int8)(int)(cmd->intensityScreengrab * 255.0f) << 24)
-        | (unsigned __int8)(int)(cmd->intensityWhiteout * 255.0f)
-        | ((unsigned __int8)(int)(cmd->intensityWhiteout * 255.0f) << 8)
-        | ((unsigned __int8)(int)(cmd->intensityWhiteout * 255.0f) << 16),
+        ((unsigned __int8)SnapFloatToInt(cmd->intensityScreengrab * 255.0f) << 24)
+        | (unsigned __int8)SnapFloatToInt(cmd->intensityWhiteout * 255.0f)
+        | ((unsigned __int8)SnapFloatToInt(cmd->intensityWhiteout * 255.0f) << 8)
+        | ((unsigned __int8)SnapFloatToInt(cmd->intensityWhiteout * 255.0f) << 16),
         GFX_PRIM_STATS_CODE);
     execState->cmd = (char *)execState->cmd + cmd->header.byteCount;
 }
@@ -2307,7 +2281,7 @@ void __cdecl GetDecayingLetterInfo(
     }
     *resultSkipDrawing = skipDrawing;
     *resultLetter = letter;
-    *resultAlpha = CLAMP((int)(fade * 255.0f), 0, 255);
+    *resultAlpha = CLAMP(SnapFloatToInt(fade * 255.0f), 0, 255);    
     *resultDrawExtraFxChar = drawExtraFxChar;
 }
 

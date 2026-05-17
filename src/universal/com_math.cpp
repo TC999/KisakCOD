@@ -420,13 +420,14 @@ float __cdecl Q_acos(float c)
     return 3.1415927f;
 }
 
-char __cdecl ClampChar(int i)
-{
-    if (i < -128)
-        return CHAR_MIN;
-    if (i <= 127)
-        return i;
-    return 127;
+signed char ClampChar(int i) {
+    if (i < -128) {
+        return -128;
+    }
+    if (i > 127) {
+        return 127;
+    }
+    return i;
 }
 
 unsigned __int8 __cdecl DirToByte(const float *dir)
@@ -576,10 +577,10 @@ float __cdecl Vec2Normalize(vec2r v)
 
 void __cdecl Vec3NormalizeFast(float *v)
 {
-    int32_t number; // [esp+0h] [ebp-1Ch]
+    float number; // [esp+0h] [ebp-1Ch]
     float invLength; // [esp+18h] [ebp-4h]
 
-    *(float *)&number = Vec3LengthSq(v);
+    number = Vec3LengthSq(v);
     invLength = I_rsqrt(number);
     v[0] = v[0] * invLength;
     v[1] = v[1] * invLength;
@@ -920,6 +921,17 @@ void __cdecl YawVectors2D(float yaw, float *forward, float *right)
         *right = sy;
         right[1] = -cy;
     }
+}
+
+void __cdecl Vec2NormalizeFast(float *v)
+{
+    float number; // [esp+18h] [ebp-8h]
+    float invLength; // [esp+1Ch] [ebp-4h]
+
+    number = *v * *v + v[1] * v[1];
+    invLength = I_rsqrt(number);
+    *v = *v * invLength;
+    v[1] = v[1] * invLength;
 }
 
 void __cdecl PerpendicularVector(const float* src, float* dst)
@@ -2196,12 +2208,13 @@ bool __cdecl BoxDistSqrdExceeds(const float *absmin, const float *absmax, const 
     return fogOpaqueDistSqrd < total;
 }
 
+// https://github.com/id-Software/Quake-III-Arena/blob/dbe4ddb10315479fc00086f08e25d968b4b43c49/q3radiant/MATHLIB.CPP#L55
 float __cdecl Q_rint(float in)
 {
-    float v3; // [esp+Ch] [ebp-4h]
-
-    v3 = in + 0.5;
-    return floor(v3);
+    //if (g_PrefsDlg.m_bNoClamp)
+    //    return in;
+    //else
+        return (float)floor(in + 0.5);
 }
 
 float __cdecl ColorNormalize(const float* in, float *out)
@@ -2872,6 +2885,13 @@ void __cdecl Vec3Mul(const float* a, const float* b, float* product)
     *product = *a * *b;
     product[1] = a[1] * b[1];
     product[2] = a[2] * b[2];
+}
+
+void Vec3Clear(vec3r v)
+{
+    v[0] = 0.0f;
+    v[1] = 0.0f;
+    v[2] = 0.0f;
 }
 
 void __cdecl Vec3Negate(const float *from, float *to)

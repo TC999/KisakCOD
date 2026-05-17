@@ -1018,6 +1018,7 @@ void __cdecl CL_CheckForResend(netsrc_t localClientNum)
     uint32 steamClientTicketSize = 0;
     char steamIDbuf[25];
     unsigned char steamTicketBase64[2048]{ 0 };
+    bool got;
 
 #ifdef _DEBUG
     unsigned char steamTicketDecodeBuf[1024]{ 0 };
@@ -1052,14 +1053,14 @@ void __cdecl CL_CheckForResend(netsrc_t localClientNum)
                 pktlen = &pkt[strlen(pkt) + 1] - &pkt[1];
                 //PbClientConnecting(1, pkt, &pktlen);
                 //CL_BuildMd5StrFromCDKey(md5Str);
-                iassert(Steam_GetRawClientTicket(&pSteamClientTicket, &steamClientTicketSize));
-
-                b64_encode(pSteamClientTicket, steamClientTicketSize, steamTicketBase64);
-#ifdef _DEBUG
-                iassert(b64_decode(steamTicketBase64, strlen((char *)steamTicketBase64), steamTicketDecodeBuf) == steamClientTicketSize);
-#endif
                 //v2 = va("getchallenge 0 \"%s\"", md5Str);
+
+                got = Steam_GetRawClientTicket(&pSteamClientTicket, &steamClientTicketSize);
+                iassert(got);
+                b64_encode(pSteamClientTicket, steamClientTicketSize, steamTicketBase64);
+                iassert(b64_decode(steamTicketBase64, strlen((char *)steamTicketBase64), steamTicketDecodeBuf) == steamClientTicketSize);
                 v2 = va("getchallenge 0 \"%s\" \"%llu\"", steamTicketBase64, Steam_GetClientSteamID64());
+
                 NET_OutOfBandPrint(localClientNum, clc->serverAddress, v2);
                 break;
             case CA_CHALLENGING:

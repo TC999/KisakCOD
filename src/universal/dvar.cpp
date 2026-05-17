@@ -1135,10 +1135,10 @@ void __cdecl Dvar_StringToColor(const char *string, unsigned __int8 *color)
 
     sscanf(string, "%g %g %g %g", &colorVec[0], &colorVec[1], &colorVec[2], &colorVec[3]);
 
-    color[0] = CLAMP((int)(colorVec[0] * 255.0f), 0, 255);
-    color[1] = CLAMP((int)(colorVec[1] * 255.0f), 0, 255);
-    color[2] = CLAMP((int)(colorVec[2] * 255.0f), 0, 255);
-    color[3] = CLAMP((int)(colorVec[3] * 255.0f), 0, 255);
+    color[0] = CLAMP(SnapFloatToInt(colorVec[0] * 255.0f), 0, 255);
+    color[1] = CLAMP(SnapFloatToInt(colorVec[1] * 255.0f), 0, 255);
+    color[2] = CLAMP(SnapFloatToInt(colorVec[2] * 255.0f), 0, 255);
+    color[3] = CLAMP(SnapFloatToInt(colorVec[3] * 255.0f), 0, 255);
 }
 
 void __cdecl Dvar_GetUnpackedColorByName(const char *dvarName, float *expandedColor)
@@ -1319,7 +1319,6 @@ void __cdecl Dvar_MakeLatchedValueCurrent(dvar_s *dvar)
 
 void __cdecl Dvar_SetVariant(dvar_s *dvar, DvarValue value, DvarSetSource source)
 {
-    const char *v3; // eax
     char *v4; // eax
     const char *v5; // eax
     const char *v6; // eax
@@ -1329,14 +1328,12 @@ void __cdecl Dvar_SetVariant(dvar_s *dvar, DvarValue value, DvarSetSource source
     DvarValue oldString; // [esp+20h] [ebp-24h] BYREF
     DvarValue currentString; // [esp+30h] [ebp-14h] BYREF
 
-    if (!dvar)
-        MyAssertHandler(".\\universal\\dvar.cpp", 925, 0, "%s", "dvar");
-    if (!dvar->name)
-        MyAssertHandler(".\\universal\\dvar.cpp", 926, 0, "%s", "dvar->name");
+    iassert(dvar);
+    iassert(dvar->name);
+
     if (Com_LogFileOpen())
     {
-        v3 = Dvar_ValueToString(dvar, value);
-        v4 = va("      dvar set %s %s\n", dvar->name, v3);
+        v4 = va("      dvar set %s %s\n", dvar->name, Dvar_ValueToString(dvar, value));
         //Com_PrintMessage(6, v4, 0);
     }
     if (!Dvar_ValueInDomain(dvar->type, value, dvar->domain))
@@ -1551,7 +1548,7 @@ const dvar_s *__cdecl Dvar_RegisterBool(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue dvarValue; // [esp+8h] [ebp-14h]
+    DvarValue dvarValue = {};
 
     dvarValue.enabled = value;
     return Dvar_RegisterVariant(dvarName, DVAR_TYPE_BOOL, flags, dvarValue, 0LL, description);
@@ -2026,13 +2023,8 @@ const dvar_s *__cdecl Dvar_RegisterInt(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue v6; // [esp-1Ch] [ebp-38h]
-    __int64 dvarValue_4; // [esp+Ch] [ebp-10h]
-    float dvarValue_12; // [esp+14h] [ebp-8h]
-
+    DvarValue v6 = {};
     v6.integer = value;
-    //*(_QWORD *)(&v6.value + 1) = dvarValue_4;
-    //v6.vector[3] = dvarValue_12;
     return Dvar_RegisterVariant(dvarName, DVAR_TYPE_INT, flags, v6, min, description);
 }
 
@@ -2044,8 +2036,8 @@ const dvar_t *__cdecl Dvar_RegisterInt(
     unsigned int flags,
     const char *description)
 {
-    DvarValue dvarValue; // [esp+4h] [ebp-20h]
-    DvarLimits dvarDomain; // [esp+14h] [ebp-10h]
+    DvarValue dvarValue = {};
+    DvarLimits dvarDomain = {};
 
     dvarValue.integer = value;
     dvarDomain.integer.min = min;
@@ -2061,13 +2053,8 @@ const dvar_s *__cdecl Dvar_RegisterFloat(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue v6; // [esp-1Ch] [ebp-38h]
-    __int64 dvarValue_4; // [esp+Ch] [ebp-10h]
-    float dvarValue_12; // [esp+14h] [ebp-8h]
-
+    DvarValue v6 = {};
     v6.value = value;
-    //*(_QWORD *)(&v6.value + 1) = dvarValue_4;
-    //v6.vector[3] = dvarValue_12;
     return Dvar_RegisterVariant(dvarName, DVAR_TYPE_FLOAT, flags, v6, min, description);
 }
 
@@ -2079,8 +2066,8 @@ const dvar_s *__cdecl Dvar_RegisterFloat(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue dvarValue; // [esp+4h] [ebp-20h]
-    DvarLimits dvarDomain; // [esp+14h] [ebp-10h]
+    DvarValue dvarValue = {};
+    DvarLimits dvarDomain = {};
 
     dvarValue.value = value;
     dvarDomain.value.min = min;
@@ -2097,14 +2084,7 @@ const dvar_s *__cdecl Dvar_RegisterVec2(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue v7; // [esp-1Ch] [ebp-38h]
-    __int64 dvarValue_4; // [esp+Ch] [ebp-10h]
-    float dvarValue_12; // [esp+14h] [ebp-8h]
-    
-    //*(float *)&dvarValue_4 = y;
-    //v7.value = x;
-    //*(_QWORD *)(&v7.value + 1) = dvarValue_4;
-    //v7.vector[3] = dvarValue_12;
+    DvarValue v7 = {};
     v7.vector[0] = x;
     v7.vector[1] = y;
     return Dvar_RegisterVariant(dvarName, DVAR_TYPE_FLOAT_2, flags, v7, min, description);
@@ -2119,15 +2099,7 @@ const dvar_s *__cdecl Dvar_RegisterVec3(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue v8; // [esp-1Ch] [ebp-38h]
-    __int64 dvarValue_4; // [esp+Ch] [ebp-10h]
-    float dvarValue_12; // [esp+14h] [ebp-8h]
-
-    //*(float *)&dvarValue_4 = y;
-    //*((float *)&dvarValue_4 + 1) = z;
-    //v8.value = x;
-    //*(_QWORD *)(&v8.value + 1) = dvarValue_4;
-    //v8.vector[3] = dvarValue_12;
+    DvarValue v8 = {};
     v8.vector[0] = x;
     v8.vector[1] = y;
     v8.vector[2] = z;
@@ -2162,7 +2134,7 @@ const dvar_s *__cdecl Dvar_RegisterVec4(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue val; // [esp-1Ch] [ebp-38h]
+    DvarValue val = {};
     val.vector[0] = x;
     val.vector[1] = y;
     val.vector[2] = z;
@@ -2195,9 +2167,7 @@ const dvar_s *__cdecl Dvar_RegisterString(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarValue v5; // [esp-1Ch] [ebp-38h]
-    __int64 dvarValue_4; // [esp+Ch] [ebp-10h]
-    float dvarValue_12; // [esp+14h] [ebp-8h]
+    DvarValue v5 = {};
 
     if (!dvarName)
         MyAssertHandler(".\\universal\\dvar.cpp", 1751, 0, "%s", "dvarName");
@@ -2212,8 +2182,6 @@ const dvar_s *__cdecl Dvar_RegisterString(
             "((flags & (1 << 14)) || CanKeepStringPointer( value ))",
             dvarName);
     v5.integer = (int)value;
-    //*(_QWORD *)(&v5.value + 1) = dvarValue_4;
-    //v5.vector[3] = dvarValue_12;
     return Dvar_RegisterVariant(dvarName, DVAR_TYPE_STRING, flags, v5, 0, description);
 }
 
@@ -2224,8 +2192,8 @@ const dvar_s *__cdecl Dvar_RegisterEnum(
     unsigned __int16 flags,
     const char *description)
 {
-    DvarLimits dvarDomain; // [esp+0h] [ebp-1Ch]
-    DvarValue dvarValue; // [esp+8h] [ebp-14h]
+    DvarLimits dvarDomain = {};
+    DvarValue dvarValue = {};
 
     if (!dvarName)
         MyAssertHandler(".\\universal\\dvar.cpp", 1766, 0, "%s", "dvarName");
@@ -2282,7 +2250,7 @@ const dvar_s *__cdecl Dvar_RegisterColor(
     float v25; // [esp+74h] [ebp-38h]
     float v26; // [esp+7Ch] [ebp-30h]
     float v27; // [esp+8Ch] [ebp-20h]
-    DvarValue dvarValue; // [esp+98h] [ebp-14h]
+    DvarValue dvarValue = {};
 
     v19 = r - 1.0;
     if (v19 < 0.0)
@@ -2324,14 +2292,10 @@ const dvar_s *__cdecl Dvar_RegisterColor(
         v8 = v21;
     else
         v8 = 0.0;
-    v20 = v8 * 255.0f + EQUAL_EPSILON;
-    dvarValue.color[3] = (int)(v20);
-    v26 = v17 * 255.0f + EQUAL_EPSILON;
-    dvarValue.enabled = (int)(v26);
-    v24 = v14 * 255.0f + EQUAL_EPSILON;
-    dvarValue.color[1] = (int)(v24);
-    v22 = v11 * 255.0f + EQUAL_EPSILON;
-    dvarValue.color[2] = (int)(v22);
+    dvarValue.color[3] = SnapFloatToInt(v8 * 255.0f);
+    dvarValue.enabled = SnapFloatToInt(v17 * 255.0f);
+    dvarValue.color[1] = SnapFloatToInt(v14 * 255.0f);
+    dvarValue.color[2] = SnapFloatToInt(v11 * 255.0f);
     return Dvar_RegisterVariant(dvarName, DVAR_TYPE_COLOR, flags, dvarValue, 0, description);
 }
 
@@ -2550,16 +2514,16 @@ void __cdecl Dvar_SetColorFromSource(dvar_s *dvar, float r, float g, float b, fl
     if (dvar->type == DVAR_TYPE_COLOR)
     {
         float clampedR = CLAMP(r, 0.0f, 1.0f);
-        newValue.color[0] = (byte)(clampedR * 255.0f);
+        newValue.color[0] = (byte)SnapFloatToInt(clampedR * 255.0f);
 
         float clampedG = CLAMP(g, 0.0f, 1.0f);
-        newValue.color[1] = (byte)(clampedG * 255.0f);
+        newValue.color[1] = (byte)SnapFloatToInt(clampedG * 255.0f);
 
         float clampedB = CLAMP(b, 0.0f, 1.0f);
-        newValue.color[2] = (byte)(clampedB * 255.0f);
+        newValue.color[2] = (byte)SnapFloatToInt(clampedB * 255.0f);
 
         float clampedA = CLAMP(a, 0.0f, 1.0f);
-        newValue.color[3] = (byte)(clampedA * 255.0f);
+        newValue.color[3] = (byte)SnapFloatToInt(clampedA * 255.0f);
     }
     else
     {
@@ -2600,21 +2564,12 @@ void __cdecl Dvar_SetStringFromSource(dvar_s *dvar, char *string, DvarSetSource 
     char stringCopy[1028]; // [esp+0h] [ebp-418h] BYREF
     DvarValue newValue; // [esp+404h] [ebp-14h]
 
-    if (!dvar)
-        MyAssertHandler(".\\universal\\dvar.cpp", 1931, 0, "%s", "dvar");
-    if (!dvar->name)
-        MyAssertHandler(".\\universal\\dvar.cpp", 1932, 0, "%s", "dvar->name");
-    if (dvar->type != 7 && dvar->type != 6)
-        MyAssertHandler(
-            ".\\universal\\dvar.cpp",
-            1933,
-            0,
-            "%s\n\t(dvar->name) = %s",
-            "(dvar->type == DVAR_TYPE_STRING || dvar->type == DVAR_TYPE_ENUM)",
-            dvar->name);
-    if (!string)
-        MyAssertHandler(".\\universal\\dvar.cpp", 1934, 0, "%s", "string");
-    if (dvar->type == 7)
+    iassert(dvar);
+    iassert(dvar->name);
+    iassert(dvar->type == DVAR_TYPE_STRING || dvar->type == DVAR_TYPE_ENUM);
+    iassert(string);
+
+    if (dvar->type == DVAR_TYPE_STRING)
     {
         I_strncpyz(stringCopy, string, 1024);
         newValue.integer = (int)stringCopy;
@@ -2629,6 +2584,8 @@ void __cdecl Dvar_SetStringFromSource(dvar_s *dvar, char *string, DvarSetSource 
         }
     }
     Dvar_SetVariant(dvar, newValue, source);
+
+    iassert(dvar->current.value != (int)stringCopy); // LWSS ADD
 }
 
 void __cdecl Dvar_SetColor(dvar_s *dvar, float r, float g, float b, float a)

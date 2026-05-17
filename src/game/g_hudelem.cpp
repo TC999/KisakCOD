@@ -357,13 +357,13 @@ void __cdecl HudElem_SetColor(game_hudelem_s *hud, int32_t offset)
     Scr_GetVector(0, color);
 
     float clampedR = CLAMP(color[0], 0.0f, 1.0f) * 255.0f;
-    hud->elem.color.r = (int)(clampedR);
+    hud->elem.color.r = SnapFloatToInt(clampedR);
 
     float clampedG = CLAMP(color[1], 0.0f, 1.0f) * 255.0f;
-    hud->elem.color.g = (int)(clampedG);
+    hud->elem.color.g = SnapFloatToInt(clampedG);
 
     float clampedB = CLAMP(color[2], 0.0f, 1.0f) * 255.0f;
-    hud->elem.color.b = (int)(clampedB);
+    hud->elem.color.b = SnapFloatToInt(clampedB);
 }
 
 void __cdecl HudElem_GetColor(game_hudelem_s *hud, int32_t offset)
@@ -388,7 +388,7 @@ void __cdecl HudElem_SetAlpha(game_hudelem_s *hud, int32_t offset)
     alpha = Scr_GetFloat(0);
 
     float clampedAlpha = CLAMP(alpha, 0.0f, 1.0f) * 255.0f;
-    hud->elem.color.a = (int)(clampedAlpha);
+    hud->elem.color.a = SnapFloatToInt(clampedAlpha);
 }
 
 void __cdecl HudElem_GetAlpha(game_hudelem_s *hud, int32_t offset)
@@ -405,14 +405,14 @@ void __cdecl HudElem_SetGlowColor(game_hudelem_s *hud, int32_t offset)
         MyAssertHandler(".\\game\\g_hudelem.cpp", 540, 0, "%s", "fields[offset].ofs == HEOFS( elem.glowColor )");
     Scr_GetVector(0, glowColor);
 
-    float clampedR = CLAMP(glowColor[0], 0.0f, 1.0f);
-    hud->elem.glowColor.r = (int)(clampedR);
+    float clampedR = CLAMP(glowColor[0], 0.0f, 1.0f) * 255.0f;
+    hud->elem.glowColor.r = SnapFloatToInt(clampedR);
 
-    float clampedG = CLAMP(glowColor[1], 0.0f, 1.0f);
-    hud->elem.glowColor.g = (int)(clampedG);
+    float clampedG = CLAMP(glowColor[1], 0.0f, 1.0f) * 255.0f;
+    hud->elem.glowColor.g = SnapFloatToInt(clampedG);
 
-    float clampedB = CLAMP(glowColor[2], 0.0f, 1.0f);
-    hud->elem.glowColor.b = (int)(clampedB);
+    float clampedB = CLAMP(glowColor[2], 0.0f, 1.0f) * 255.0f;
+    hud->elem.glowColor.b = SnapFloatToInt(clampedB);
 }
 
 void __cdecl HudElem_GetGlowColor(game_hudelem_s *hud, int32_t offset)
@@ -436,8 +436,8 @@ void __cdecl HudElem_SetGlowAlpha(game_hudelem_s *hud, int32_t offset)
 
     glowAlpha = Scr_GetFloat(0);
     
-    float clampedGlowAlpha = CLAMP(glowAlpha, 0.0f, 1.0f);
-    hud->elem.glowColor.a = (int)(clampedGlowAlpha);
+    float clampedGlowAlpha = CLAMP(glowAlpha, 0.0f, 1.0f) * 255.0f;
+    hud->elem.glowColor.a = SnapFloatToInt(clampedGlowAlpha);
 }
 
 void __cdecl HudElem_GetGlowAlpha(game_hudelem_s *hud, int32_t offset)
@@ -989,8 +989,7 @@ void __cdecl HECmd_FadeOverTime(scr_entref_t entref)
     }
     BG_LerpHudColors(&hud->elem, level.time, &hud->elem.fromColor);
     hud->elem.fadeStartTime = level.time;
-    hud->elem.fadeTime = (int)(fadeTime * 1000.0f);
-}
+    hud->elem.fadeTime = SnapFloatToInt(fadeTime * 1000.0f);}
 
 void __cdecl HECmd_ScaleOverTime(scr_entref_t entref)
 {
@@ -1022,7 +1021,7 @@ void __cdecl HECmd_ScaleOverTime(scr_entref_t entref)
     width = Scr_GetInt(1);
     height = Scr_GetInt(2);
     hud->elem.scaleStartTime = level.time;
-    hud->elem.scaleTime = (int)(scaleTime * 1000.0f);
+    hud->elem.scaleTime = SnapFloatToInt(scaleTime * 1000.0f);    
     hud->elem.fromWidth = hud->elem.width;
     hud->elem.fromHeight = hud->elem.height;
     hud->elem.width = width;
@@ -1053,7 +1052,7 @@ void __cdecl HECmd_MoveOverTime(scr_entref_t entref)
         Scr_ParamError(0, v1);
     }
     hud->elem.moveStartTime = level.time;
-    hud->elem.moveTime = (int)(moveTime * 1000.0f);
+    hud->elem.moveTime = SnapFloatToInt(moveTime * 1000.0f);    
     hud->elem.fromX = hud->elem.x;
     hud->elem.fromY = hud->elem.y;
     hud->elem.fromAlignOrg = hud->elem.alignOrg;
@@ -1221,30 +1220,29 @@ static const BuiltinMethodDef methods_0[22] =
 #elif KISAK_SP
 static void BG_LerpFontScale(const hudelem_s *elem, int time, float *toScale) // this belongs in bg_misc but is only used here..
 {
-    __int64 v3; // r11 OVERLAPPED
     double v6; // fp31
     double fontScale; // fp0
 
-    LODWORD(v3) = elem->fontScaleTime;
-    HIDWORD(v3) = time - elem->fontScaleStartTime;
-    if ((int)v3 <= 0 || SHIDWORD(v3) >= (int)v3)
+    int duration = elem->fontScaleTime;
+    int elapsed = time - elem->fontScaleStartTime;
+    if (duration <= 0 || elapsed >= duration)
     {
         fontScale = elem->fontScale;
     }
     else
     {
-        if (v3 < 0)
-            HIDWORD(v3) = 0;
-        v6 = (float)((float)*(__int64 *)((char *)&v3 + 4) / (float)v3);
+        if (elapsed < 0)
+            elapsed = 0;
+        v6 = (float)elapsed / (float)duration;
         if (v6 < 0.0 || v6 > 1.0)
             MyAssertHandler(
                 "c:\\trees\\cod3\\cod3src\\src\\bgame\\bg_misc.cpp",
                 1848,
                 0,
                 "%s\n\t(lerp) = %g",
-                HIDWORD(v6),
-                LODWORD(v6));
-        fontScale = (float)((float)((float)(elem->fontScale - elem->fromFontScale) * (float)v6) + elem->fromFontScale);
+                "(lerp >= 0.0f && lerp <= 1.0f)",
+                v6);
+        fontScale = (elem->fontScale - elem->fromFontScale) * (float)v6 + elem->fromFontScale;
     }
     *toScale = fontScale;
 }

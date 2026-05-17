@@ -198,24 +198,16 @@ void __cdecl PM_AddTouchEnt(pmove_t *pm, int32_t entityNum)
 void __cdecl PM_ClipVelocity(const float *in, const float *normal, float *out)
 {
     float scale; // [esp+0h] [ebp-14h]
-    float v4; // [esp+Ch] [ebp-8h]
     float parallel; // [esp+10h] [ebp-4h]
-    float parallela; // [esp+10h] [ebp-4h]
 
     parallel = Vec3Dot(in, normal);
-    v4 = I_fabs(parallel);
-    parallela = parallel - v4 * EQUAL_EPSILON;
-    scale = -parallela;
+    parallel = parallel - I_fabs(parallel) * EQUAL_EPSILON;
+    scale = -parallel;
     Vec3Mad(in, scale, normal, out);
 }
 
 void __cdecl PM_ProjectVelocity(const float *velIn, const float *normal, float *velOut)
 {
-    float v3; // [esp+8h] [ebp-3Ch]
-    float v4; // [esp+Ch] [ebp-38h]
-    float v5; // [esp+10h] [ebp-34h]
-    float v6; // [esp+14h] [ebp-30h]
-    float v7; // [esp+1Ch] [ebp-28h]
     float lengthSq2D; // [esp+24h] [ebp-20h]
     float adjusted[3]; // [esp+28h] [ebp-1Ch] BYREF
     float adjustedLengthSq; // [esp+34h] [ebp-10h]
@@ -223,29 +215,29 @@ void __cdecl PM_ProjectVelocity(const float *velIn, const float *normal, float *
     float lengthScale; // [esp+3Ch] [ebp-8h]
     float originalLengthSq; // [esp+40h] [ebp-4h]
 
-    lengthSq2D = velIn[1] * velIn[1] + *velIn * *velIn;
-    v6 = I_fabs(normal[2]);
-    if (v6 < EQUAL_EPSILON || lengthSq2D == 0.0)
+    lengthSq2D = Vec2LengthSq(velIn);
+    
+    if (I_fabs(normal[2]) < EQUAL_EPSILON || lengthSq2D == 0.0)
     {
-        *velOut = *velIn;
+        velOut[0] = velIn[0];
         velOut[1] = velIn[1];
         velOut[2] = velIn[2];
     }
     else
     {
-        v5 = normal[1] * velIn[1] + *normal * *velIn;
-        newZ = -v5 / normal[2];
-        v7 = velIn[1];
-        adjusted[0] = *velIn;
-        adjusted[1] = v7;
+        newZ = -(normal[1] * velIn[1] + normal[0] * velIn[0]) / normal[2];
+
+        adjusted[0] = velIn[0];
+        adjusted[1] = velIn[1];
         adjusted[2] = newZ;
+
         originalLengthSq = velIn[2] * velIn[2] + lengthSq2D;
         adjustedLengthSq = newZ * newZ + lengthSq2D;
-        v4 = originalLengthSq / adjustedLengthSq;
-        v3 = sqrt(v4);
-        lengthScale = v3;
-        if (v3 < 1.0 || newZ < 0.0 || velIn[2] > 0.0)
+        lengthScale = sqrt(originalLengthSq / adjustedLengthSq);
+        if (lengthScale < 1.0 || newZ < 0.0 || velIn[2] > 0.0)
+        {
             Vec3Scale(adjusted, lengthScale, velOut);
+        }
     }
 }
 
@@ -515,8 +507,9 @@ void __cdecl PM_UpdateLean(
     playerState_s *ps,
     float msec,
     usercmd_s *cmd,
-    void(__cdecl *capsuleTrace)(trace_t *, float *, float *, float *, float *, int32_t))
+    void(__cdecl *capsuleTrace)(trace_t *, const float *, const float *, const float *, const float *, int32_t, int32_t))
 {
+    // Zero initialization required for working leaning
     float v4 = 0.f; // [esp+10h] [ebp-84h]
     float v5 = 0.f; // [esp+14h] [ebp-80h]
     float fLeanFrac = 0.f; // [esp+18h] [ebp-7Ch]
@@ -530,16 +523,7 @@ void __cdecl PM_UpdateLean(
     float tmaxs[3] = { 0.f, 0.f, 0.f }; // [esp+84h] [ebp-10h] BYREF
     int32_t leaning = 0; // [esp+90h] [ebp-4h]
 
-    /*if ((cmd->buttons & 0xC0) != 0
-        && (ps->pm_flags & PMF_FROZEN) == 0
-        && ps->pm_type < PM_DEAD
-        && (ps->groundEntityNum != ENTITYNUM_NONE || ps->pm_type == PM_NORMAL_LINKED))
-    {
-        if ((cmd->buttons & 0x40) != 0)
-            --leaning;
-        if ((cmd->buttons & 0x80) != 0)
-            ++leaning;
-    }*/
+    // Patched from 1.7
     if ((cmd->buttons & 0xC0) != 0 && (ps->pm_flags & PMF_FROZEN) == 0)
     {
         if (ps->pm_type < PM_DEAD && (ps->groundEntityNum != ENTITYNUM_NONE || ps->pm_type == PM_NORMAL_LINKED))
@@ -612,7 +596,7 @@ void __cdecl PM_UpdateLean(
         tmaxs[0] = 8.0;
         tmaxs[1] = 8.0;
         tmaxs[2] = 8.0;
-        capsuleTrace(&trace, start, tmins, tmaxs, end, ps->clientNum);
+        capsuleTrace(&trace, start, tmins, tmaxs, end, ps->clientNum, 0x2810011);
         fLean = UnGetLeanFraction(trace.fraction);
         v5 = I_fabs(ps->leanf);
         if (fLean < (double)v5)
@@ -651,7 +635,7 @@ void __cdecl PM_UpdateViewAngles(playerState_s *ps, float msec, usercmd_s *cmd, 
             ps,
             msec,
             cmd,
-            (void(__cdecl *)(trace_t *, float *, float *, float *, float *, int))pmoveHandlers[handler].trace);
+            pmoveHandlers[handler].trace);
         return;
     }
     oldViewYaw = ps->viewangles[1];
@@ -678,7 +662,7 @@ void __cdecl PM_UpdateViewAngles(playerState_s *ps, float msec, usercmd_s *cmd, 
     if (ps->pm_type != PM_UFO && ps->pm_type != PM_NOCLIP && ps->pm_type != PM_SPECTATOR)
         goto LABEL_21;
 #elif KISAK_SP
-    if (ps->pm_type != PM_UFO && ps->pm_type != PM_NOCLIP && ps->pm_type != PM_MPVIEWER)
+    if (ps->pm_type != PM_UFO && ps->pm_type != PM_NOCLIP)
         goto LABEL_21;
 #endif
 }
@@ -4230,7 +4214,9 @@ void __cdecl PM_UpdatePlayerWalkingFlag(pmove_t *pm)
         && ps->weaponstate != WEAPON_RELOADING_INTERUPT)
     {
         ps->pm_flags |= PMF_WALKING;
+#ifdef KISAK_MP
         iassert((ps->otherFlags & POF_PLAYER) != 0);
+#endif
     }
 }
 

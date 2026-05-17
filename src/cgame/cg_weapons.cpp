@@ -1229,7 +1229,7 @@ void __cdecl CG_AddViewWeapon(int32_t localClientNum)
 #ifdef KISAK_MP
     if (ps->pm_type != PM_SPECTATOR && ps->pm_type != PM_INTERMISSION && !cgameGlob->renderingThirdPerson)
 #elif KISAK_SP
-    if (ps->pm_type != PM_UFO && ps->pm_type != PM_NOCLIP && ps->pm_type != PM_MPVIEWER)
+    if (ps->pm_type != PM_UFO && ps->pm_type != PM_NOCLIP)
 #endif
     {
         if (cgameGlob->cubemapShot || !cg_drawGun->current.enabled || CG_GetWeapReticleZoom(cgameGlob, &fZoom))
@@ -2527,14 +2527,15 @@ void __cdecl FireBulletPenetrate(
                     break;
                 traceHit = BulletTrace(localClientNum, bp, weapDef, attacker, &br, br.depthSurfaceType);
                 revBp = *bp; // Com_Memcpy((char *)&revBp, (char *)bp, 64);
-                //LODWORD(diff[4]) = bp->dir;
+
                 revBp.dir[0] = -bp->dir[0];
                 revBp.dir[1] = -bp->dir[1];
                 revBp.dir[2] = -bp->dir[2];
-                // LODWORD(diff[3]) = bp->end;
+
                 revBp.start[0] = bp->end[0];
                 revBp.start[1] = bp->end[1];
                 revBp.start[2] = bp->end[2];
+
                 Vec3Mad(lastHitPos, 0.0099999998f, revBp.dir, revBp.end);
                 revBr = br; // Com_Memcpy((char *)&revBr, (char *)&br, 68);
                 revBr.trace.normal[0] = -revBr.trace.normal[0];
@@ -3078,11 +3079,7 @@ cg_s *__cdecl CG_GetLocalClientGlobalsForEnt(int32_t localClientNum, int32_t ent
 
 void __cdecl CG_GetViewDirection(int32_t localClientNum, int32_t entityNum, float *forward, float *right, float *up)
 {
-    const cg_s *cgameGlob; // [esp+0h] [ebp-10h]
-    uint32_t clientNum; // [esp+Ch] [ebp-4h]
-    const clientInfo_t *ci;
-
-    cgameGlob = CG_GetLocalClientGlobalsForEnt(localClientNum, entityNum);
+    const cg_s *cgameGlob = CG_GetLocalClientGlobalsForEnt(localClientNum, entityNum);
     if (cgameGlob)
     {
         BG_GetPlayerViewDirection(&cgameGlob->predictedPlayerState, forward, right, up);
@@ -3090,7 +3087,8 @@ void __cdecl CG_GetViewDirection(int32_t localClientNum, int32_t entityNum, floa
     else
     {
 #ifdef KISAK_MP
-        clientNum = CG_GetEntity(localClientNum, entityNum)->nextState.clientNum;
+        const clientInfo_t *ci;
+        uint32_t clientNum = CG_GetEntity(localClientNum, entityNum)->nextState.clientNum;
 
         bcassert(clientNum, MAX_CLIENTS);
         ci = &CG_GetLocalClientGlobals(localClientNum)->bgs.clientinfo[clientNum];
