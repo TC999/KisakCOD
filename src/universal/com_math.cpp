@@ -12,7 +12,7 @@
 //Line 51773:  0006 : 0000bc58       float (*)[3] bytedirs        827bbc58     com_math.obj
 //Line 53450 : 0006 : 0291d360       int marker_com_math      850cd360     com_math.obj
 
-static unsigned int holdrand;
+static uint32_t holdrand;
 
 float bytedirs[162][3] =
 {
@@ -235,7 +235,7 @@ void __cdecl GaussianRandom(float *f0, float *f1)
     *f1 = y * v2;
 }
 
-unsigned int __cdecl RandWithSeed(int *seed)
+uint32_t __cdecl RandWithSeed(int *seed)
 {
     *seed = 1103515245 * *seed + 12345;
     return *seed / 0x10000 % 0x8000u;
@@ -430,11 +430,11 @@ signed char ClampChar(int i) {
     return i;
 }
 
-unsigned __int8 __cdecl DirToByte(const float *dir)
+uint8_t __cdecl DirToByte(const float *dir)
 {
     float d; // [esp+0h] [ebp-Ch]
-    unsigned __int8 best; // [esp+6h] [ebp-6h]
-    unsigned __int8 i; // [esp+7h] [ebp-5h]
+    uint8_t best; // [esp+6h] [ebp-6h]
+    uint8_t i; // [esp+7h] [ebp-5h]
     float bestd; // [esp+8h] [ebp-4h]
 
     if (!dir)
@@ -453,7 +453,7 @@ unsigned __int8 __cdecl DirToByte(const float *dir)
     return best;
 }
 
-void __cdecl ByteToDir(unsigned int b, float *dir)
+void __cdecl ByteToDir(uint32_t b, float *dir)
 {
     float *v2; // ecx
 
@@ -2168,7 +2168,7 @@ void __cdecl ProjectPointOnPlane(const float *const f1, const float *const norma
 void __cdecl SetPlaneSignbits(cplane_s *out)
 {
     int j; // [esp+0h] [ebp-8h]
-    unsigned __int8 bits; // [esp+7h] [ebp-1h]
+    uint8_t bits; // [esp+7h] [ebp-1h]
 
     bits = 0;
     for (j = 0; j < 3; ++j)
@@ -3067,7 +3067,7 @@ void __cdecl InfinitePerspectiveMatrix(float (*mtx)[4], float tanHalfFovX, float
     iassert(mtx);
     iassert(zNear > 0);
 
-    memset((unsigned __int8 *)mtx, 0, sizeof(mat4x4));
+    memset((uint8_t *)mtx, 0, sizeof(mat4x4));
 
     (*mtx)[0] = MAX_11BIT_FLT / tanHalfFovX;
     (*mtx)[5] = MAX_11BIT_FLT / tanHalfFovY;
@@ -3305,7 +3305,7 @@ void __cdecl FinitePerspectiveMatrix(float (*mtx)[4], float tanHalfFovX, float t
     iassert(zNear > 0.0f);
     iassert(zFar > zNear);
 
-    memset((unsigned __int8 *)mtx, 0, 0x40u);
+    memset((uint8_t *)mtx, 0, 0x40u);
 
     (*mtx)[0] = 1.0 / tanHalfFovX;
     (*mtx)[5] = 1.0 / tanHalfFovY;
@@ -3448,10 +3448,9 @@ void vectosignedangles(const float *vec, float *angles)
 {
     float yaw, pitch;
 
-    // Handle the special case where horizontal components are zero
     if (vec[0] == 0.0f && vec[1] == 0.0f) {
         yaw = 0.0f;
-        pitch = (vec[2] < 0.0f) ? -90.0f : 90.0f;
+        pitch = (vec[2] >= 0.0f) ? -90.0f : 90.0f;
     }
     else {
         // Compute yaw (angle in the XY plane)
@@ -3460,8 +3459,8 @@ void vectosignedangles(const float *vec, float *angles)
         // Compute horizontal distance (magnitude in the XY plane)
         float xyLen = sqrtf(vec[0] * vec[0] + vec[1] * vec[1]);
 
-        // Compute pitch (elevation from horizontal plane)
-        pitch = RAD2DEG(atan2f(vec[2], xyLen));
+        // Compute pitch (elevation from horizontal plane). NEGATED: up = negative pitch.
+        pitch = -RAD2DEG(atan2f(vec[2], xyLen));
     }
 
     angles[0] = pitch;  // X = pitch
@@ -3496,9 +3495,9 @@ void MatrixRotationY(float mat[3][3], float degree)
     float s = sinf(radians);
     float c = cosf(radians);
 
-    mat[0][0] = c;  mat[0][1] = 0.0f; mat[0][2] = -s;
+    mat[0][0] = c;  mat[0][1] = 0.0f; mat[0][2] = s;
     mat[1][0] = 0.0f; mat[1][1] = 1.0f; mat[1][2] = 0.0f;
-    mat[2][0] = s;  mat[2][1] = 0.0f; mat[2][2] = c;
+    mat[2][0] = -s; mat[2][1] = 0.0f; mat[2][2] = c;
 }
 
 // aislop
@@ -3526,11 +3525,6 @@ float Vec3DistanceSq(const float *p1, const float *p2)
          + (p2[0] - p1[0]) * (p2[0] - p1[0]);
 }
 
-float  __cdecl Abs(const float *v)
-{
-    return (float)sqrt((float)((float)((float)(*v * *v) + (float)(v[1] * v[1])) + (float)(v[2] * v[2])));
-}
-
 float __cdecl Vec3Distance(const float *v1, const float *v2)
 {
     float dir[3]; // [esp+4h] [ebp-Ch] BYREF
@@ -3538,5 +3532,6 @@ float __cdecl Vec3Distance(const float *v1, const float *v2)
     dir[0] = v2[0] - v1[0];
     dir[1] = v2[1] - v1[1];
     dir[2] = v2[2] - v1[2];
-    return Abs(dir);
+
+    return Vec3Length(dir);
 }

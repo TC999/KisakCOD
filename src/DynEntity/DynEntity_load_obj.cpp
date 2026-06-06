@@ -337,6 +337,7 @@ uint8_t *__cdecl DynEnt_Alloc(int32_t count, int32_t size)
     return buf;
 }
 
+#ifdef KISAK_MP
 void __cdecl DynEnt_LoadEntities()
 {
     char *v0; // eax
@@ -605,6 +606,35 @@ void __cdecl DynEnt_LoadEntities()
         }
     }
 }
+#endif // KISAK_MP
+
+#ifdef KISAK_SP
+void __cdecl DynEnt_LoadEntities(MemoryFile *memFile)
+{
+    iassert(memFile);
+    for (int drawType = 0; drawType < 2; ++drawType)
+    {
+        uint16_t count = 0;
+        MemFile_ReadData(memFile, sizeof(count), (uint8_t *)&count);
+        cm.dynEntCount[drawType] = count;
+        if (count == 0)
+            continue;
+
+        MemFile_ReadData(memFile, sizeof(DynEntityPose) * count, (uint8_t *)cm.dynEntPoseList[drawType]);
+        MemFile_ReadData(memFile, sizeof(DynEntityClient) * count, (uint8_t *)cm.dynEntClientList[drawType]);
+
+        for (uint16_t dynEntId = 0; dynEntId < count; ++dynEntId)
+        {
+            uint8_t hasPhys = 0;
+            MemFile_ReadData(memFile, 1, &hasPhys);
+            if (hasPhys)
+                cm.dynEntClientList[drawType][dynEntId].physObjId = (uintptr_t)Phys_ObjLoad(PHYS_WORLD_DYNENT, memFile);
+            else
+                cm.dynEntClientList[drawType][dynEntId].physObjId = 0;
+        }
+    }
+}
+#endif // KISAK_SP
 
 const DynEntityProps *__cdecl DynEnt_GetEntityProps(DynEntityType dynEntType)
 {
@@ -733,9 +763,9 @@ int32_t __cdecl DynEnt_GetXModelUsageCount(const XModel *xModel)
 void DynEnt_SaveEntities(MemoryFile *memFile)
 {
     int v2; // r26
-    unsigned __int16 *dynEntCount; // r27
+    uint16_t *dynEntCount; // r27
     DynEntityClient **dynEntClientList; // r29
-    unsigned int v5; // r31
+    uint32_t v5; // r31
     bool v6; // [sp+50h] [-40h] BYREF
 
     iassert(memFile);
@@ -759,7 +789,7 @@ void DynEnt_SaveEntities(MemoryFile *memFile)
                     MemFile_WriteData(memFile, 1, &v6);
                     if (v6)
                         Phys_ObjSave((dxBody*)(*dynEntClientList)[v5].physObjId, memFile);
-                    v5 = (unsigned __int16)(v5 + 1);
+                    v5 = (uint16_t)(v5 + 1);
                 } while (v5 < *dynEntCount);
             }
         }

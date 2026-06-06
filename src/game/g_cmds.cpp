@@ -802,7 +802,7 @@ void __cdecl Cmd_DropWeapon_f(gentity_s *pSelf)
     if (v3)
     {
         if (Drop_Weapon(pSelf, pSelf->s.weapon, pSelf->s.weaponModel, 0))
-            G_AddEvent(pSelf, 11, 0);
+            G_AddEvent(pSelf, EV_NOAMMO, 0);
     }
 }
 
@@ -830,7 +830,7 @@ void __cdecl Cmd_MenuResponse_f(gentity_s *pEnt)
         SV_Cmd_ArgvBuffer(1, v4, 1024);
         v3 = atol(v4);
         if (v3 <= 0x1F)
-            SV_GetConfigstring(v3 + 2551, v4, 1024);
+            SV_GetConfigstring(v3 + 2519, v4, 1024); // CS_SCRIPT_MENUS (PC SP, was Xbox 2551)
         SV_Cmd_ArgvBuffer(2, v5, 1024);
     }
     else
@@ -857,7 +857,6 @@ void Cmd_VisionSetNaked_f()
     long double v3; // fp2
     long double v4; // fp2
     const char *v5; // r4
-    const char *v6; // r3
     int v7; // [sp+50h] [-30h]
 
     v7 = 1000;
@@ -903,8 +902,7 @@ void Cmd_VisionSetNaked_f()
         v5 = "";
     else
         v5 = (const char *)*((unsigned int *)sv_cmd_args.argv[nesting] + 1);
-    v6 = va("\"%s\" %i", v5, v7);
-    SV_SetConfigstring(1149, v6);
+    SV_SetConfigstring(CS_VISIONSET_NAKED, va("\"%s\" %i", v5, v7));
 }
 
 void Cmd_VisionSetNight_f()
@@ -915,7 +913,6 @@ void Cmd_VisionSetNight_f()
     long double v3; // fp2
     long double v4; // fp2
     const char *v5; // r4
-    const char *v6; // r3
     int v7; // [sp+50h] [-30h]
 
     v7 = 1000;
@@ -961,8 +958,7 @@ void Cmd_VisionSetNight_f()
         v5 = "";
     else
         v5 = (const char *)*((unsigned int *)sv_cmd_args.argv[nesting] + 1);
-    v6 = va("\"%s\" %i", v5, v7);
-    SV_SetConfigstring(1150, v6);
+    SV_SetConfigstring(CS_VISIONSET_NIGHT, va("\"%s\" %i", v5, v7));
 }
 
 void __cdecl ClientCommand(int clientNum, const char *s)
@@ -1107,7 +1103,7 @@ void __cdecl ClientCommand(int clientNum, const char *s)
             SV_Cmd_EndTokenizedString();
             return;
         }
-        v6 = va("print \"GAME_UNKNOWNCLIENTCOMMAND %s\"", v7);
+        v6 = va("print \"GAME_UNKNOWNCLIENTCOMMAND\x15%s\"", v7);
         SV_GameSendServerCommand(clientNum, v6);
     }
     SV_Cmd_EndTokenizedString();

@@ -61,7 +61,7 @@ int __cdecl G_FindConfigstringIndex(const char *name, int start, int max, int cr
         //Profile_EndInternal(0);
         return 0;
     }
-    if (start < 1114)
+    if (start < CS_CASE_INSENSITIVE_BEGIN)
         String = SL_FindString(name);
     else
         String = SL_FindLowercaseString(name);
@@ -135,7 +135,7 @@ int __cdecl G_LocalizedStringIndex(const char *string)
         v5 = SL_FindString(string);
         for (i = 1; i < 1023; ++i)
         {
-            ConfigstringConst = SV_GetConfigstringConst(i + 91);
+            ConfigstringConst = SV_GetConfigstringConst(CS_LOCALIZED_STRINGS + i);
             if (ConfigstringConst == scr_const._)
                 break;
             if (ConfigstringConst == v5)
@@ -158,7 +158,7 @@ int __cdecl G_LocalizedStringIndex(const char *string)
             v9 = va("G_LocalizedStringIndex: overflow (%d) : %s", 91, string);
             Com_Error(ERR_DROP, v9);
         }
-        SV_SetConfigstring(i + 91, string);
+        SV_SetConfigstring(CS_LOCALIZED_STRINGS + i, string);
     LABEL_22:
         //Profile_EndInternal(0);
         if (i)
@@ -192,7 +192,7 @@ LABEL_24:
             v12 = va("G_LocalizedStringIndex: overflow (%d) : %s", 91, string);
             Com_Error(ERR_DROP, v12);
         }
-        SV_SetConfigstring(i + 91, string);
+        SV_SetConfigstring(CS_LOCALIZED_STRINGS + i, string);
     LABEL_34:
         //Profile_EndInternal(0);
         if (i)
@@ -219,21 +219,14 @@ int __cdecl G_MaterialIndex(const char *name)
         (v2++)[v5 - name] = v3;
     } while (v3);
     I_strlwr(v5);
-    return G_FindConfigstringIndex(v5, 2583, 128, level.initializing, "material");
+    return G_FindConfigstringIndex(v5, 2551, 128, level.initializing, "material"); // CS_SERVER_MATERIALS (PC SP, was Xbox 2583)
 }
 
 void __cdecl G_SetModelIndex(int modelIndex, const char *name)
 {
-    if (modelIndex <= 0 || modelIndex >= 512)
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
-            225,
-            0,
-            "%s\n\t(modelIndex) = %i",
-            "(modelIndex > 0 && modelIndex < (1 << 9))",
-            modelIndex);
+    iassert(modelIndex > 0 && modelIndex < (1 << 9));
     cached_models[modelIndex] = SV_XModelGet((char*)name);
-    SV_SetConfigstring(modelIndex + 1155, name);
+    SV_SetConfigstring(CS_MODELS + modelIndex, name);
 }
 
 int __cdecl G_ModelIndex(const char *name)
@@ -255,7 +248,7 @@ int __cdecl G_ModelIndex(const char *name)
     v4 = 1;
     while (1)
     {
-        ConfigstringConst = SV_GetConfigstringConst(v4 + 1155);
+        ConfigstringConst = SV_GetConfigstringConst(v4 + 1123); // CS_MODELS (PC SP, was Xbox 1155)
         if (ConfigstringConst == scr_const._)
         {
         LABEL_9:
@@ -326,7 +319,7 @@ unsigned int __cdecl G_ModelName(unsigned int index)
 {
     if (index >= 0x200)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 316, 0, "%s", "(unsigned)index < MAX_MODELS");
-    return SV_GetConfigstringConst(index + 1155);
+    return SV_GetConfigstringConst(index + 1123); // CS_MODELS (PC SP, was Xbox 1155)
 }
 
 void __cdecl G_EntityCentroidWithBounds(const gentity_s *ent, const float *mins, const float *maxs, float *centroid)
@@ -387,14 +380,14 @@ int __cdecl G_EffectIndex(const char *name)
             "%s\n\t(name) = %s",
             "(I_strncmp( name, \"fx/\", 3 ))",
             name);
-    return G_FindConfigstringIndex(name, 2179, 100, level.initializing, "effect");
+    return G_FindConfigstringIndex(name, 2147, 100, level.initializing, "effect"); // CS_EFFECT_NAMES (PC SP, was Xbox 2179)
 }
 
 int __cdecl G_ShellShockIndex(const char *name)
 {
     if (!name)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 365, 0, "%s", "name");
-    return G_FindConfigstringIndex(name, 2535, 16, 1, 0);
+    return G_FindConfigstringIndex(name, 2503, 16, 1, 0); // CS_SHELLSHOCKS (PC SP, was Xbox 2535)
 }
 
 unsigned int __cdecl G_SoundAliasIndexTransientAdvance(unsigned __int16 aliasIndex, int offset)
@@ -572,7 +565,7 @@ unsigned int __cdecl G_SoundAliasIndexTransient(const char *name)
                 "(aliasIndex >= 256 && aliasIndex < 512)",
                 (unsigned __int16)v16);
         level.soundAliasLast = v16;
-        SV_SetConfigstring((unsigned __int16)v8 + 1667, name);
+        SV_SetConfigstring(CS_SOUNDALIASES + (unsigned __int16)v8, name);
     }
     else
     {
@@ -580,7 +573,7 @@ unsigned int __cdecl G_SoundAliasIndexTransient(const char *name)
         {
             if (!(_WORD)v8)
                 MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 404, 0, "%s", "aliasIndex != 0");
-            if (SV_GetConfigstringConst((unsigned __int16)v8 + 1667) == v9)
+            if (SV_GetConfigstringConst(CS_SOUNDALIASES + (unsigned __int16)v8) == v9)
                 break;
             if ((unsigned __int16)v8 < 0x100u || (unsigned __int16)v8 >= 0x200u)
                 MyAssertHandler(
@@ -612,14 +605,24 @@ int __cdecl G_SoundAliasIndexPermanent(const char *name)
 {
     if (!name)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 424, 0, "%s", "name");
-    return (unsigned __int16)G_FindConfigstringIndex(name, 1667, 256, 1, 0);
+    return (unsigned __int16)G_FindConfigstringIndex(name, 1635, 256, 1, 0);
 }
 
 int __cdecl G_RumbleIndex(const char *name)
 {
+#if 0
     if (!name)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 432, 0, "%s", "name");
+    // KISAKTODO: CS_RUMBLES bucket (1115, size 32) existed in Xbox CoD3-SP but is
+    // ABSENT from the PC SP configstring layout (iw3sp_dump). The slots 1115..1146
+    // in PC SP are CS_NORTHYAW (1115), CS_MINIMAP (1116), CS_VISIONSET_NAKED (1117),
+    // CS_VISIONSET_NIGHT (1118), CS_NIGHTVISION (1119), CS_LOC_SEL_MTLS[0..2]
+    // (1120..1122), and the start of CS_MODELS (1123+). Calling this with the
+    // Xbox values writes garbage into singles + models — broken on PC SP.
     return G_FindConfigstringIndex(name, 1115, 32, 1, 0);
+#else
+    return 0;
+#endif
 }
 
 void __cdecl G_SetClientDemoTime(int time)
@@ -983,14 +986,15 @@ void __cdecl G_CheckDObjUpdate(gentity_s *ent)
     unsigned __int16 v11; // [sp+50h] [-190h] BYREF
     unsigned __int16 v12; // [sp+52h] [-18Eh] BYREF
     XAnimTree_s *v13; // [sp+54h] [-18Ch] BYREF
-    DObjModel_s v14; // [sp+60h] [-180h] BYREF
+
+    DObjModel_s v14[DOBJ_MAX_SUBMODELS]; // [sp+60h] [-180h] BYREF
     char v15; // [sp+6Ch] [-174h] BYREF
 
     ServerDObj = Com_GetServerDObj(ent->s.number);
     model = ent->model;
     if (ent->model)
     {
-        DObjGetCreateParms(ServerDObj, &v14, &v11, &v13, &v12);
+        DObjGetCreateParms(ServerDObj, v14, &v11, &v13, &v12);
         if (ent->s.lerp.u.actor.species)
         {
             pAnimTree = ent->pAnimTree;
@@ -1021,34 +1025,34 @@ void __cdecl G_CheckDObjUpdate(gentity_s *ent)
         v6 = G_GetModel(model);
         if (!v6)
             MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 812, 0, "%s", "model");
-        if (v14.model != v6)
+        if (v14[0].model != v6)
             MyAssertHandler(
                 "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
                 815,
                 0,
                 "%s",
                 "dobjModels[numModels].model == model");
-        if (v14.boneName)
+        if (v14[0].boneName)
             MyAssertHandler(
                 "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
                 816,
                 0,
                 "%s",
                 "!dobjModels[numModels].boneName");
-        if (v14.ignoreCollision)
+        if (v14[0].ignoreCollision)
             MyAssertHandler(
                 "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
                 817,
                 0,
                 "%s",
                 "!dobjModels[numModels].ignoreCollision");
+
         v7 = 1;
-        v8 = (XModel **)&v15;
         attachTagNames = ent->attachTagNames;
         do
         {
-            v10 = *(attachTagNames - 31);
-            if (!*(attachTagNames - 31))
+            v10 = *(attachTagNames - 31);  // == ent->attachModelNames[i]
+            if (!v10)
                 break;
             if (v7 >= 32)
                 MyAssertHandler(
@@ -1059,25 +1063,24 @@ void __cdecl G_CheckDObjUpdate(gentity_s *ent)
                     "numModels < DOBJ_MAX_SUBMODELS");
             if (v7 >= v11)
                 MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 827, 0, "%s", "numModels < modelCount");
-            if (*(v8 - 1) != G_GetModel(v10))
+            if (v14[v7].model != G_GetModel(v10))
                 MyAssertHandler(
                     "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
                     828,
                     0,
                     "%s",
                     "dobjModels[numModels].model == G_GetModel( modelIndex )");
-            if (!*(v8 - 1))
+            if (!v14[v7].model)
                 MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 829, 0, "%s", "dobjModels[numModels].model");
             if (!*attachTagNames)
                 MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 830, 0, "%s", "ent->attachTagNames[i]");
-            if (*(_WORD *)v8 && *(unsigned __int16 *)v8 != *attachTagNames)
+            if (v14[v7].boneName && v14[v7].boneName != *attachTagNames)
                 MyAssertHandler(
                     "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
                     831,
                     0,
                     "%s",
                     "!dobjModels[numModels].boneName || (dobjModels[numModels].boneName == ent->attachTagNames[i] )");
-            //if (*((_BYTE *)v8 + 2) != ((_cntlzw((1 << (v7 - 1)) & ent->attachIgnoreCollision) & 0x20) == 0))
             //    MyAssertHandler(
             //        "c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp",
             //        832,
@@ -1086,7 +1089,6 @@ void __cdecl G_CheckDObjUpdate(gentity_s *ent)
             //        "dobjModels[numModels].ignoreCollision == ((ent->attachIgnoreCollision & (1 << i)) != 0)");
             ++v7;
             ++attachTagNames;
-            v8 += 2;
         } while (v7 - 1 < 31);
         if (v7 != v11)
             MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 836, 0, "%s", "numModels == modelCount");
@@ -1148,7 +1150,7 @@ void __cdecl G_OverrideModel(unsigned int modelindex, const char *defaultModelNa
     }
     MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", v4, 0, "%s", v5);
 LABEL_6:
-    ConfigstringConst = SV_GetConfigstringConst(modelindex + 1155);
+    ConfigstringConst = SV_GetConfigstringConst(modelindex + 1123); // CS_MODELS (PC SP, was Xbox 1155)
     v7 = SL_ConvertToString(ConfigstringConst);
     if (!*v7)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 895, 0, "%s", "modelName[0]");
@@ -1937,7 +1939,7 @@ void __cdecl G_LoadFreeEntities(unsigned __int8 *buf)
     }
 }
 
-void __cdecl G_AddPredictableEvent(gentity_s *ent, int event, unsigned int eventParm)
+void __cdecl G_AddPredictableEvent(gentity_s *ent, entity_event_t event, unsigned int eventParm)
 {
     gclient_s *client; // r5
 
@@ -2003,8 +2005,8 @@ void __cdecl G_RegisterSoundWait(gentity_s *ent, unsigned __int16 index, unsigne
         Scr_Notify(ent, ent->snd_wait.notifyString, 0);
         if (!ent->snd_wait.stoppable || !stoppable)
         {
-            SV_GetConfigstring(ent->snd_wait.index + 1667, v16, 1024);
-            SV_GetConfigstring(index + 1667, v15, 1024);
+            SV_GetConfigstring(ent->snd_wait.index + 1635, v16, 1024);
+            SV_GetConfigstring(index + 1635, v15, 1024);
             Scr_SetString(v14, 0);
             if (ent->targetname)
                 SL_ConvertToString(ent->targetname);
@@ -2079,7 +2081,7 @@ void __cdecl G_PlaySoundAlias(gentity_s *ent, unsigned __int16 index)
     if (!ent)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 2773, 0, "%s", "ent");
     if (index)
-        G_AddEvent(ent, 3u, index);
+        G_AddEvent(ent, EV_SOUND_ALIAS, index);
 }
 
 void __cdecl G_SetOrigin(gentity_s *ent, float *origin)
@@ -2277,7 +2279,15 @@ void __cdecl G_CalcTagParentAxis(gentity_s *ent, float (*parentAxis)[3])
         G_DObjCalcBone(parent, tagInfo->index);
         v7 = &SV_DObjGetMatrixArray(parent)[tagInfo->index];
         LocalConvertQuatToMat(v7, v9);
-        MatrixMultiply((const mat3x3&)v9, (const mat3x3&)v10, (mat3x3&)parentAxis);
+        // parentAxis is `float (*)[3]` (a pointer parameter). The previous cast
+        // `(mat3x3&)parentAxis` reinterpreted the 4-byte pointer SLOT as a 36-byte
+        // 3x3 matrix — MatrixMultiply then wrote 9 floats starting at the address
+        // of the local pointer variable, clobbering return address / saved EBP.
+        // Caught by ASAN at G_CalcTagParentAxis → MatrixMultiply. IDA SP 0x82272330
+        // passed `parentAxis` directly to a `float (*)[3]`-typed parameter; the
+        // kisak port redeclared MatrixMultiply with `mat3x3&` references, so we
+        // need to bind the reference to the pointee, not the pointer variable.
+        MatrixMultiply((const mat3x3&)v9, (const mat3x3&)v10, (mat3x3&)*parentAxis);
         v8 = &(*parentAxis)[9];
         MatrixTransformVector43(v7->trans, (const mat4x3&)v10, &(*parentAxis)[9]);
     }
@@ -2337,7 +2347,10 @@ void __cdecl G_CalcTagParentRelAxis(gentity_s *ent, float (*parentRelAxis)[3])
     if (!tagInfo)
         MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_utils.cpp", 1419, 0, "%s", "tagInfo");
     G_CalcTagParentAxis(ent, v5);
-    MatrixMultiply43(tagInfo->parentInvAxis, (const mat4x3&)v5, (mat4x3&)parentRelAxis);
+    // Same pointer-vs-pointee gotcha as G_CalcTagParentAxis: parentRelAxis is
+    // `float (*)[3]` and `(mat4x3&)parentRelAxis` would treat the 4-byte pointer
+    // SLOT as a 48-byte mat4x3, blowing out the stack on write. Dereference first.
+    MatrixMultiply43(tagInfo->parentInvAxis, (const mat4x3&)v5, (mat4x3&)*parentRelAxis);
 }
 
 void __cdecl G_CalcTagAxis(gentity_s *ent, int bAnglesOnly)
@@ -2491,21 +2504,23 @@ void __cdecl G_SetPlayerFixedLink(gentity_s *ent)
             client->ps.viewangles[angleIndex] = client->ps.viewangles[angleIndex] + angleDiff;
         }
 
-        // LWSS: removed in blops... try this for now
-        //if (ent->client->link_useTagAnglesForViewAngles)
-        //{
+        if (ent->client->link_useTagAnglesForViewAngles)
+        {
             client->ps.linkAngles[0] = worldAngles[0];
             client->ps.linkAngles[1] = worldAngles[1];
             client->ps.linkAngles[2] = worldAngles[2];
-        //}
-        //else
-        //{
-        //    AnglesToAxis(client->ps.linkAngles, v38);
-        //    AxisToQuat(v38, v37);
-        //    QuatMultiply(v37, linkChangeQuat, v34);
-        //    QuatToAxis(v34, (mat3x3&)v38);
-        //    AxisToAngles((const mat3x3&)v38, client->ps.linkAngles);
-        //}
+        }
+        else
+        {
+            float relMat[3][3];   // v38
+            float relQuat[4];     // v37
+            float newRelQuat[4];  // v34
+            AnglesToAxis(client->ps.linkAngles, relMat);
+            AxisToQuat(relMat, relQuat);
+            QuatMultiply(relQuat, linkChangeQuat, newRelQuat);
+            QuatToAxis(newRelQuat, (mat3x3&)relMat);
+            AxisToAngles((const mat3x3&)relMat, client->ps.linkAngles);
+        }
     }
     if (ent->client->link_rotationMovesEyePos)
     {
@@ -3040,7 +3055,7 @@ int __cdecl G_EntDetach(gentity_s *ent, const char *modelName, unsigned int tagN
                         0,
                         "%s",
                         "(unsigned)index < MAX_MODELS");
-                if (SV_GetConfigstringConst(v10 + 1155) == v7)
+                if (SV_GetConfigstringConst(v10 + 1123) == v7) // CS_MODELS (PC SP, was Xbox 1155)
                     break;
             }
             ++v8;

@@ -836,11 +836,10 @@ void __cdecl CG_DrawFriendOverlay(int localClientNum)
 {
     cg_s *LocalClientGlobals; // r30
     const char *ConfigString; // r3
-    const char *v4; // r31
     const char *friendName; // r25
     int v6; // r4
-    const dvar_s *v7; // r11
-    const dvar_s *v8; // r10
+    const dvar_s *textColor; // r11
+    const dvar_s *outlineColor; // r10
     const ScreenPlacement *place; // r31
     Font_s *FontHandle; // r27
     int v11; // r7
@@ -851,42 +850,37 @@ void __cdecl CG_DrawFriendOverlay(int localClientNum)
     double v16; // fp4
     const char *v17; // r3
     const char *v18; // r28
-    int v70; // [sp+7Ch] [-74h]
-    int integer; // [sp+80h] [-70h] BYREF
-    float v72; // [sp+84h] [-6Ch]
-    float v73; // [sp+88h] [-68h]
-    float v74; // [sp+8Ch] [-64h]
-    Material v75; // [sp+90h] [-60h] BYREF
+    float color[4];
+    float glowColor[4];
 
     if (!cg_paused->current.integer && !CG_Flashbanged(localClientNum))
     {
         LocalClientGlobals = CG_GetLocalClientGlobals(localClientNum);
-        ConfigString = CL_GetConfigString(localClientNum, 9u);
-        v4 = ConfigString;
+        ConfigString = CL_GetConfigString(localClientNum, CS_FRIEND_OVERLAY);
         if (ConfigString)
         {
             if (*ConfigString && I_stricmp(ConfigString, "none") && !hud_missionFailed->current.enabled)
             {
-                friendName = SEH_LocalizeTextMessage(v4, "Friend Name", LOCMSG_SAFE);
+                friendName = SEH_LocalizeTextMessage(ConfigString, "Friend Name", LOCMSG_SAFE);
                 v6 = !friendlyNameFontObjective->current.enabled ? 0 : 6;
                 if ((LocalClientGlobals->predictedPlayerState.weapFlags & 0x10) != 0)
                 {
-                    v7 = hostileNameFontColor;
-                    v8 = hostileNameFontGlowColor;
+                    textColor = hostileNameFontColor;
+                    outlineColor = hostileNameFontGlowColor;
                 }
                 else
                 {
-                    v7 = friendlyNameFontColor;
-                    v8 = friendlyNameFontGlowColor;
+                    textColor = friendlyNameFontColor;
+                    outlineColor = friendlyNameFontGlowColor;
                 }
-                integer = v7->current.integer;
-                v72 = v7->current.vector[1];
-                v73 = v7->current.vector[2];
-                v74 = v7->current.vector[3];
-                *(float *)&v75.info.name = v8->current.value;
-                *(float *)&v75.info.gameFlags = v8->current.vector[1];
-                *(float *)&v75.info.drawSurf.fields = v8->current.vector[2];
-                *((float *)&v75.info.drawSurf.packed + 1) = v8->current.vector[3];
+                color[0] = textColor->current.value; // name color (friendly or hostile)
+                color[1] = textColor->current.vector[1];
+                color[2] = textColor->current.vector[2];
+                color[3] = textColor->current.vector[3];
+                glowColor[0] = outlineColor->current.value; // name glow color
+                glowColor[1] = outlineColor->current.vector[1];
+                glowColor[2] = outlineColor->current.vector[2];
+                glowColor[3] = outlineColor->current.vector[3];
                 place = &scrPlaceView[localClientNum];
                 FontHandle = UI_GetFontHandle(place, v6, friendlyNameFontSize->current.value);
                 UI_DrawTextWithGlow(
@@ -894,42 +888,41 @@ void __cdecl CG_DrawFriendOverlay(int localClientNum)
                     friendName,
                     0x7FFFFFFF,
                     FontHandle,
-                    25.0, // x
-                    -2.0, // y
-                    2, // horzAlign KISAKTODO: args bad
-                    2, // vertAlign
+                    25.0,      // x
+                    -2.0,      // y
+                    2,         // horzAlign
+                    2,         // vertAlign
                     friendlyNameFontSize->current.value, // scale
-                    colorGreen, // Color bodge
-                    2,
-                    colorBlue,
-                    false,
-                    false);
-                v17 = CL_GetConfigString(localClientNum, 0xAu);
+                    color,     // name color
+                    3,         // style
+                    glowColor, // glow color
+                    false,     // subtitle
+                    false);    // cinematic
+                v17 = CL_GetConfigString(localClientNum, CS_FRIEND_OVERLAY_LAST);
                 v18 = v17;
                 if (v17 && *v17)
                 {
                     if (I_stricmp(v17, "none"))
                     {
-                        //LOBYTE(v70) = 0;
-                        //LOBYTE(v66) = 0;
-                        //v72 = 1.0;
-                        //v73 = 1.0;
-                        //v74 = 0.69999999;
+                        color[0] = 1.0f; // last-friend line drawn white @ 0.7 alpha
+                        color[1] = 1.0f;
+                        color[2] = 1.0f;
+                        color[3] = 0.7f;
                         UI_DrawTextWithGlow(
                             place,
                             UI_SafeTranslateString(v18),
                             0x7FFFFFFF,
                             FontHandle,
-                            25.0, // x
-                            20.0, // y
-                            2,
-                            2,
-                            friendlyNameFontSize->current.value,
-                            colorLtCyan,
-                            0,
-                            colorBlue,
-                            false,
-                            false); // KISAKTODO: args bad
+                            25.0,      // x
+                            20.0,      // y
+                            2,         // horzAlign
+                            2,         // vertAlign
+                            friendlyNameFontSize->current.value, // scale
+                            color,     // {1,1,1,0.7}
+                            3,         // style
+                            glowColor, // same glow color as the name
+                            false,     // subtitle
+                            false);    // cinematic
                     }
                 }
             }
@@ -948,65 +941,38 @@ void __cdecl CG_DrawPaused(int localClientNum)
 
 void __cdecl CG_AlterTimescale(int localClientNum, int time, double startScale, double endScale)
 {
-    if (localClientNum)
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_local.h",
-            910,
-            0,
-            "%s\n\t(localClientNum) = %i",
-            "(localClientNum == 0)",
-            localClientNum);
-    cgArray[0].timeScaleTimeStart = Sys_Milliseconds();
-    cgArray[0].timeScaleTimeEnd = cgArray[0].timeScaleTimeStart + time;
-    cgArray[0].timeScaleStart = startScale;
-    cgArray[0].timeScaleEnd = endScale;
+    cg_s *cgameGlob = CG_GetLocalClientGlobals(localClientNum);
+
+    cgameGlob->timeScaleTimeStart = Sys_Milliseconds();
+    cgameGlob->timeScaleTimeEnd = cgArray[0].timeScaleTimeStart + time;
+    cgameGlob->timeScaleStart = startScale;
+    cgameGlob->timeScaleEnd = endScale;
 }
 
-void __cdecl CG_UpdateTimeScale(cg_s *cgameGlob)
+void __cdecl CG_UpdateTimeScale(int localClientNum)
 {
-    int v2; // r3
-    int v3; // r29
-    int *p_timeScaleTimeStart; // r28
-    __int64 v5; // r11
-    int *p_timeScaleTimeEnd; // r30
-    int v7[4]; // r11
-    double timeScaleEnd; // fp1
+    cg_s *cgameGlob = CG_GetLocalClientGlobals(localClientNum);
 
-    v2 = Sys_Milliseconds();
-    v3 = v2;
-    p_timeScaleTimeStart = &cgameGlob->timeScaleTimeStart;
-    HIDWORD(v5) = cgameGlob->timeScaleTimeStart;
-    if (HIDWORD(v5) && SHIDWORD(v5) < v2)
+    int currentTime = Sys_Milliseconds();
+    int startTime = cgameGlob->timeScaleTimeStart;
+
+    if (!startTime || currentTime <= startTime)
+        return;
+
+    int endTime = cgameGlob->timeScaleTimeEnd;
+    if (currentTime >= endTime)
     {
-        p_timeScaleTimeEnd = &cgameGlob->timeScaleTimeEnd;
-        LODWORD(v5) = cgameGlob->timeScaleTimeEnd;
-        if (v2 >= (int)v5)
-        {
-            *p_timeScaleTimeStart = 0;
-            timeScaleEnd = cgameGlob->timeScaleEnd;
-            *p_timeScaleTimeEnd = 0;
-            Com_SetTimeScale(timeScaleEnd);
-        }
-        else
-        {
-            LODWORD(v5) = v5 - HIDWORD(v5);
-            if ((float)v5 <= 0.0)
-                MyAssertHandler(
-                    "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_draw.cpp",
-                    828,
-                    0,
-                    "%s",
-                    "cgameGlob->timeScaleTimeEnd - cgameGlob->timeScaleTimeStart > 0.0f");
-            v7[1] = *p_timeScaleTimeEnd;
-            v7[2] = v3 - *p_timeScaleTimeStart;
-            v7[3] = *p_timeScaleTimeEnd - *p_timeScaleTimeStart;
-            Com_SetTimeScale((float)((float)((float)((float)1.0
-                - (float)((float)*(__int64 *)&v7[1] / (float)*(__int64 *)&v7[2]))
-                * cgameGlob->timeScaleStart)
-                + (float)(cgameGlob->timeScaleEnd
-                    * (float)((float)*(__int64 *)&v7[1] / (float)*(__int64 *)&v7[2]))));
-        }
+        cgameGlob->timeScaleTimeStart = 0;
+        cgameGlob->timeScaleTimeEnd = 0;
+        Com_SetTimeScale(cgameGlob->timeScaleEnd);
+        return;
     }
+
+    int duration = endTime - startTime;
+    iassert(duration > 0);
+    int elapsed = currentTime - startTime;
+    float t = (float)elapsed / (float)duration;
+    Com_SetTimeScale((1.0f - t) * cgameGlob->timeScaleStart + t * cgameGlob->timeScaleEnd);
 }
 
 const char strButtons[17] =
@@ -1212,15 +1178,10 @@ void __cdecl CG_Draw2D(int localClientNum)
     snapshot_s *nextSnap; // r29
     int integer; // r11
 
-    if (localClientNum)
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_local.h",
-            910,
-            0,
-            "%s\n\t(localClientNum) = %i",
-            "(localClientNum == 0)",
-            localClientNum);
-    CG_UpdateTimeScale(cgArray);
+    cg_s *cgameGlob = CG_GetLocalClientGlobals(localClientNum);
+
+    CG_UpdateTimeScale(localClientNum);
+
     if (cgArray[0].predictedPlayerState.pm_type != 4 && cgArray[0].cubemapShot == CUBEMAPSHOT_NONE)
     {
         nextSnap = cgArray[0].nextSnap;

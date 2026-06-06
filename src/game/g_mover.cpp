@@ -9,6 +9,9 @@
 #include <server/sv_public.h>
 #include "g_main.h"
 #include "g_local.h"
+#include "actor.h"
+#include "actor_orientation.h"
+#include "sentient.h"
 #endif
 
 struct pushed_t // sizeof=0x2C
@@ -36,7 +39,7 @@ gentity_s *__cdecl G_TestEntityPosition(gentity_s *ent, float *vOrigin)
     int passEntityNum; // [esp+0h] [ebp-38h]
     trace_t tr; // [esp+4h] [ebp-34h] BYREF
     int mask; // [esp+30h] [ebp-8h]
-    unsigned __int16 hitEntId; // [esp+34h] [ebp-4h]
+    uint16_t hitEntId; // [esp+34h] [ebp-4h]
 
     if (ent->clipmask)
     {
@@ -199,8 +202,15 @@ int __cdecl G_TryPushingEntity(gentity_s *check, gentity_s *pusher, float *move,
                 origin[1] = org2[1];
                 origin[2] = org2[2];
             }
+#ifdef KISAK_SP
+            else if (check->actor)
+            {
+                Actor_SetDesiredBodyAngle(&check->actor->CodeOrient, check->actor->CodeOrient.fDesiredBodyYaw + amove[1]);
+                Actor_SetDesiredBodyAngle(&check->actor->ScriptOrient, check->actor->ScriptOrient.fDesiredBodyYaw + amove[1]);
+            }
+#endif
             if (check->s.eType == ET_MISSILE)
-                G_RotatePoint(&check->mover.aSpeed, matrix);
+                G_RotatePoint(check->missile.surfaceNormal, matrix);
             ++pushed_p;
             return 1;
         }
@@ -223,11 +233,19 @@ int __cdecl G_TryPushingEntity(gentity_s *check, gentity_s *pusher, float *move,
             v6[1] = vOrigin[1];
             v6[2] = vOrigin[2];
         }
+#ifdef KISAK_SP
+        else if (check->actor)
+        {
+            Actor_SetDesiredBodyAngle(&check->actor->CodeOrient, check->actor->CodeOrient.fDesiredBodyYaw + amove[1]);
+            Actor_SetDesiredBodyAngle(&check->actor->ScriptOrient, check->actor->ScriptOrient.fDesiredBodyYaw + amove[1]);
+        }
+#endif
         if (check->s.eType == ET_MISSILE)
         {
             Vec3Add(check->r.currentAngles, amove, check->r.currentAngles);
             Vec3Add(check->s.lerp.apos.trBase, amove, check->s.lerp.apos.trBase);
-            G_RotatePoint(&check->mover.aSpeed, matrix);
+
+            G_RotatePoint(check->missile.surfaceNormal, matrix);
         }
         ++pushed_p;
         return 1;
@@ -265,6 +283,17 @@ void __cdecl G_MoverTeam(gentity_s *ent)
             Vec3Sub(angles, ent->r.currentAngles, amove);
             if (G_MoverPush(ent, move, amove, &obstacle))
             {
+#ifdef KISAK_SP
+                // every actor that got pushed needs its path-finding state invalidated so it recomputes its next move from the new position.
+                for (p = pushed_p - 1; p >= pushed; --p)
+                {
+                    if (p->ent->actor)
+                    {
+                        Actor_ClearPath(p->ent->actor);
+                        Sentient_InvalidateNearestNode(p->ent->actor->sentient);
+                    }
+                }
+#endif
                 if (ent->s.lerp.pos.trType)
                 {
                     if (level.time >= ent->s.lerp.pos.trDuration + ent->s.lerp.pos.trTime)
@@ -308,8 +337,17 @@ void __cdecl G_MoverTeam(gentity_s *ent)
                         v2[1] = v3[1];
                         v2[2] = v3[2];
                     }
+#ifdef KISAK_SP
+                    else if (check->actor)
+                    {
+                        Actor_SetDesiredBodyAngle(&check->actor->CodeOrient, check->actor->CodeOrient.fDesiredBodyYaw - p->deltayaw);
+                        Actor_SetDesiredBodyAngle(&check->actor->ScriptOrient, check->actor->ScriptOrient.fDesiredBodyYaw - p->deltayaw);
+                    }
+#endif
                     if (check->s.eType == ET_MISSILE)
-                        check->item[1] = *(item_ent_t *)p->surfaceNormal;
+                    {
+                        Vec3Copy(p->surfaceNormal, check->missile.surfaceNormal);
+                    }
                     SV_LinkEntity(check);
                 }
                 ent->s.lerp.pos.trTime += level.time - level.previousTime;
@@ -345,7 +383,7 @@ char __cdecl G_MoverPush(gentity_s *pusher, float *move, float *amove, gentity_s
     int entityList[1024]; // [esp+8Ch] [ebp-2008h] BYREF
     int i; // [esp+108Ch] [ebp-1008h]
     gentity_s *ent; // [esp+1090h] [ebp-1004h]
-    unsigned int v23[1024]; // [esp+1094h] [ebp-1000h]
+    uint32_t v23[1024]; // [esp+1094h] [ebp-1000h]
 
     *obstacle = 0;
     v18 = 1;
@@ -409,7 +447,15 @@ char __cdecl G_MoverPush(gentity_s *pusher, float *move, float *amove, gentity_s
     for (j = 0; j < v9; ++j)
     {
         ent = &g_entities[entityList[j]];
-        if ((ent->s.eType == ET_MISSILE || ent->s.eType == ET_ITEM || ent->s.eType == ET_PLAYER || ent->physicsObject)
+
+        if ((ent->s.eType == ET_MISSILE
+                || ent->s.eType == ET_ITEM
+                || ent->s.eType == ET_PLAYER
+#ifdef KISAK_SP
+                || ent->s.eType == ET_ACTOR
+                || ent->s.eType == ET_ACTOR_CORPSE
+#endif
+                || ent->physicsObject)
             && (ent->s.groundEntityNum == pusher->s.number
                 || maxBound[0] > (double)ent->r.absmin[0]
                 && maxBound[1] > (double)ent->r.absmin[1]
@@ -440,8 +486,15 @@ char __cdecl G_MoverPush(gentity_s *pusher, float *move, float *amove, gentity_s
         origin[2] = currentOrigin[2];
         pushed_p->deltayaw = amove[1];
         if (ent->s.eType == ET_MISSILE)
-            *(item_ent_t *)pushed_p->surfaceNormal = *(item_ent_t *)ent->missile.surfaceNormal;
-        if (G_TryPushingEntity(ent, pusher, move, amove) || ent->s.eType == ET_ITEM || ent->s.eType == ET_MISSILE)
+            Vec3Copy(ent->missile.surfaceNormal, pushed_p->surfaceNormal);
+
+        if (G_TryPushingEntity(ent, pusher, move, amove)
+            || ent->s.eType == ET_ITEM
+            || ent->s.eType == ET_MISSILE
+#ifdef KISAK_SP
+            || ent->s.eType == ET_ACTOR_CORPSE
+#endif
+            )
         {
             SV_LinkEntity(ent);
         }
@@ -470,6 +523,7 @@ char __cdecl G_MoverPush(gentity_s *pusher, float *move, float *amove, gentity_s
 
 void __cdecl G_RunMover(gentity_s *ent)
 {
+#ifdef KISAK_MP
     if (ent->tagInfo)
     {
         G_GeneralLink(ent);
@@ -479,6 +533,48 @@ void __cdecl G_RunMover(gentity_s *ent)
         G_MoverTeam(ent);
     }
     G_RunThink(ent);
+#elif KISAK_SP
+    if (ent->scripted)
+    {
+        G_Animscripted_Think(ent);
+        trajectory_t *p_pos = &ent->s.lerp.pos;
+        bool isRagdoll = Com_IsRagdollTrajectory(&ent->s.lerp.pos);
+        G_SetOrigin(ent, ent->r.currentOrigin);
+        G_SetAngle(ent, ent->r.currentAngles);
+        SV_LinkEntity(ent);
+
+        if (ent->scripted)
+        {
+            p_pos->trType = TR_INTERPOLATE;
+            ent->s.lerp.apos.trType = TR_INTERPOLATE;
+            G_RunThink(ent);
+            if (isRagdoll)
+            {
+                p_pos->trType = TR_FIRST_RAGDOLL;
+                ent->s.lerp.apos.trType = TR_FIRST_RAGDOLL;
+            }
+            return;
+        }
+
+        if (isRagdoll)
+        {
+            p_pos->trType = TR_FIRST_RAGDOLL;
+            ent->s.lerp.apos.trType = TR_FIRST_RAGDOLL;
+        }
+        else
+        {
+            iassert(isRagdoll || ent->s.lerp.pos.trType == TR_STATIONARY);
+            iassert(isRagdoll || ent->s.lerp.apos.trType == TR_STATIONARY);
+        }
+    }
+
+    if (ent->tagInfo)
+        G_GeneralLink(ent);
+    else
+        G_MoverTeam(ent);
+
+    G_RunThink(ent);
+#endif
 }
 
 void __cdecl trigger_use(gentity_s *ent)
@@ -491,7 +587,7 @@ void __cdecl trigger_use_shared(gentity_s *self)
 {
     char szConfigString[1028]; // [esp+34h] [ebp-410h] BYREF
     const char *cursorhint; // [esp+43Ch] [ebp-8h] BYREF
-    unsigned int i; // [esp+440h] [ebp-4h]
+    uint32_t i; // [esp+440h] [ebp-4h]
 
     if (self->s.eType == ET_MISSILE)
         MyAssertHandler(".\\game\\g_mover.cpp", 749, 0, "%s", "self->s.eType != ET_MISSILE");
@@ -537,12 +633,12 @@ void __cdecl trigger_use_shared(gentity_s *self)
                 if (!szConfigString[0])
                 {
                     SV_SetConfigstring(i + 277, (char *)cursorhint);
-                    self->s.un1.scale = (unsigned __int8)i;
+                    self->s.un1.scale = (uint8_t)i;
                     break;
                 }
                 if (!strcmp(cursorhint, szConfigString))
                 {
-                    self->s.un1.scale = (unsigned __int8)i;
+                    self->s.un1.scale = (uint8_t)i;
                     break;
                 }
             }
@@ -627,7 +723,7 @@ void trigger_use_shared(gentity_s *self)
                 v8 = v11;
                 do
                 {
-                    v9 = *(unsigned __int8 *)v7 - (unsigned __int8)*v8;
+                    v9 = *(uint8_t *)v7 - (uint8_t)*v8;
                     if (!*v7)
                         break;
                     ++v7;
@@ -635,10 +731,10 @@ void trigger_use_shared(gentity_s *self)
                 } while (!v9);
                 if (!v9)
                     goto LABEL_25;
-                if ((unsigned int)++v6 >= 0x20)
+                if ((uint32_t)++v6 >= 0x20)
                     goto LABEL_26;
             }
-            SV_SetConfigstring(v6 + 59, v10[0]);
+            SV_SetConfigstring(CS_USE_TRIG_STRINGS + v6, v10[0]);
         LABEL_25:
             self->s.un1.scale = v6;
         LABEL_26:

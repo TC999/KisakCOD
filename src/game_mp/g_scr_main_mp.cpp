@@ -337,7 +337,7 @@ BuiltinMethodDef methods_2[] =
   { "itemweaponsetammo", &ScrCmd_ItemWeaponSetAmmo, 0 }
 }; // idb
 
-unsigned int __cdecl GScr_AllocString(const char *s)
+uint32_t __cdecl GScr_AllocString(const char *s)
 {
     return Scr_AllocString((char*)s, 1);
 }
@@ -4258,7 +4258,7 @@ void Scr_PlayFXOnTag()
     csIndex = G_FindConfigstringIndex(va("%02d%s", fxId, SL_ConvertToString(tag)), 1698, 256, 1, 0);
     if (csIndex <= 0 || csIndex >= 256)
         MyAssertHandler(".\\game_mp\\g_scr_main_mp.cpp", 4421, 0, "%s", "csIndex > 0 && csIndex < MAX_EFFECT_TAGS");
-    G_AddEvent(ent, 0x38u, csIndex);
+    G_AddEvent(ent, EV_PLAY_FX_ON_TAG, csIndex);
 }
 
 void Scr_PlayLoopedFX()
@@ -6587,7 +6587,7 @@ void GScr_GetAnimLength()
 
 void(__cdecl *__cdecl Scr_GetFunction(const char **pName, int *type))()
 {
-    unsigned int i; // [esp+18h] [ebp-4h]
+    uint32_t i; // [esp+18h] [ebp-4h]
 
     for (i = 0; i < 0xCD; ++i)
     {
@@ -6603,7 +6603,7 @@ void(__cdecl *__cdecl Scr_GetFunction(const char **pName, int *type))()
 
 void(__cdecl *__cdecl BuiltIn_GetMethod(const char **pName, int *type))(scr_entref_t)
 {
-    unsigned int i; // [esp+18h] [ebp-4h]
+    uint32_t i; // [esp+18h] [ebp-4h]
 
     for (i = 0; i < 0x52; ++i)
     {

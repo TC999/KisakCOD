@@ -20,7 +20,7 @@ void __cdecl CG_Laser_Add(
     const float *viewerPos,
     LaserOwnerEnum laserOwner)
 {
-    unsigned __int8 boneIndex; // [esp+3h] [ebp-31h] BYREF
+    uint8_t boneIndex; // [esp+3h] [ebp-31h] BYREF
     orientation_t orient; // [esp+4h] [ebp-30h] BYREF
 
     boneIndex = -2;
@@ -59,19 +59,14 @@ void __cdecl CG_Laser_Add_Core(
     float laserBeginLightPos[3]; // [esp+D0h] [ebp-54h] BYREF
     float laserEndWidenScale; // [esp+DCh] [ebp-48h]
     float laserEndLightPos[3]; // [esp+E0h] [ebp-44h] BYREF
-    unsigned __int8 endColorByte; // [esp+EFh] [ebp-35h]
+    uint8_t endColorByte; // [esp+EFh] [ebp-35h]
     FxPostLight postLight; // [esp+F0h] [ebp-34h] BYREF
     float laserEnd[3]; // [esp+118h] [ebp-Ch] BYREF
 
-    Com_Memset((unsigned int *)&traceResults, 0, 44);
-    if ((unsigned int)laserOwner > LASER_OWNER_PLAYER)
-        MyAssertHandler(
-            ".\\cgame\\cg_laser.cpp",
-            43,
-            0,
-            "%s\n\t(laserOwner) = %i",
-            "(laserOwner == LASER_OWNER_PLAYER || laserOwner == LASER_OWNER_NON_PLAYER)",
-            laserOwner);
+    Com_Memset((uint32_t *)&traceResults, 0, 44);
+
+    iassert((laserOwner == LASER_OWNER_PLAYER || laserOwner == LASER_OWNER_NON_PLAYER));
+
     if (laserOwner == LASER_OWNER_PLAYER)
         laserRange = cg_laserRangePlayer->current.value;
     else
@@ -90,8 +85,9 @@ void __cdecl CG_Laser_Add_Core(
     laserLength = traceResults.fraction * laserRange;
     scale = laserLength - cg_laserEndOffset->current.value;
     Vec3Mad(orient->origin, scale, orient->axis[0], laserEnd);
-    if (traceResults.fraction > 1.000100016593933)
-        MyAssertHandler(".\\cgame\\cg_laser.cpp", 60, 0, "%s", "traceResults.fraction <= 1.0001f");
+
+    iassert(traceResults.fraction <= 1.0001f);
+
     beam.begin[0] = laserBegin[0];
     beam.begin[1] = laserBegin[1];
     beam.begin[2] = laserBegin[2];
@@ -113,7 +109,7 @@ void __cdecl CG_Laser_Add_Core(
         v8 = 0;
     }
     endColorByte = v8;
-    v7 = ((unsigned __int8)v8 << 24) | 0xFFFFFF;
+    v7 = ((uint8_t)v8 << 24) | 0xFFFFFF;
     beam.endColor.packed = v7;
     Vec3Sub(viewerPos, laserEnd, diff);
     distanceBetweenViewerAndLaserEnd = Vec3Length(diff);

@@ -17,6 +17,9 @@
 #include "cg_newdraw.h"
 #endif
 
+enum {
+    MAX_HUDELEM_TEXT_LEN = 0x100
+};
 
 const float s_alignScale[4] = { 0.0, 0.5, 1.0, 0.0 }; // idb
 float glowColor[4]; // KISAKTODO: check for duplicates more
@@ -232,12 +235,12 @@ void __cdecl CG_TranslateHudElemMessage(
     uint32_t stringLen; // [esp+14h] [ebp-8h] BYREF
     uint32_t searchPos; // [esp+18h] [ebp-4h] BYREF
 
-    if (!message)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 274, 0, "%s", "message");
-    if (!hudElemString)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 275, 0, "%s", "hudElemString");
+    iassert(message);
+    iassert(hudElemString);
+
     translatedString = SEH_LocalizeTextMessage(message, messageType, LOCMSG_SAFE);
     stringLen = strlen(translatedString);
+
     if (stringLen + 1 <= 0x100)
     {
         memcpy((uint8_t *)hudElemString, (uint8_t *)translatedString, stringLen);
@@ -273,49 +276,29 @@ char __cdecl ReplaceDirective(int32_t localClientNum, uint32_t *searchPos, uint3
     char *dstStringa; // [esp+36Ch] [ebp+14h]
     uint8_t *dstStringb; // [esp+36Ch] [ebp+14h]
 
-    if (!searchPos)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 199, 0, "%s", "searchPos");
-    if (!dstLen)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 201, 0, "%s", "dstLen");
-    if (*dstLen >= 0x100)
-        MyAssertHandler(
-            ".\\cgame\\cg_hudelem.cpp",
-            202,
-            0,
-            "*dstLen doesn't index MAX_HUDELEM_TEXT_LEN\n\t%i not in [0, %i)",
-            *dstLen,
-            256);
-    if (*searchPos > *dstLen)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 203, 0, "*searchPos <= *dstLen\n\t%i, %i", *searchPos, *dstLen);
-    if (!dstString)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 204, 0, "%s", "dstString");
-    if (*dstLen != strlen(dstString))
-        MyAssertHandler(
-            ".\\cgame\\cg_hudelem.cpp",
-            205,
-            0,
-            "*dstLen == strlen( dstString )\n\t%i, %i",
-            *dstLen,
-            strlen(dstString));
+    iassert(searchPos);
+    iassert(dstLen);
+    bcassert(*dstLen, MAX_HUDELEM_TEXT_LEN);
+    iassert(*searchPos <= *dstLen);
+    iassert(dstString);
+    iassert(*dstLen == strlen(dstString));
+
     memcpy(srcString, (uint8_t *)dstString, *dstLen);
+
     srcString[*dstLen] = 0;
     v4 = strstr((const char*)&srcString[*searchPos], "[{");
     startTokenPos = (const char *)v4;
+
     if (!v4)
         return 0;
+
     v6 = strstr((const char*)v4, "}]");
     endTokenPos = v6;
     if (v6)
     {
         directiveLen = endTokenPos - startTokenPos - 2;
-        if (directiveLen < 0)
-            MyAssertHandler(
-                ".\\cgame\\cg_hudelem.cpp",
-                224,
-                1,
-                "%s\n\t(directiveLen) = %i",
-                "(directiveLen >= 0)",
-                directiveLen);
+        iassert(directiveLen >= 0);
+
         if (directiveLen)
         {
             memcpy((uint8_t *)directive, (uint8_t *)startTokenPos + 2, directiveLen);
@@ -334,8 +317,9 @@ char __cdecl ReplaceDirective(int32_t localClientNum, uint32_t *searchPos, uint3
                 dstStringb[endLen] = 0;
                 *searchPos = bindingLen + beginLen;
                 *dstLen = newStringLen;
-                if (*searchPos > *dstLen)
-                    MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 262, 1, "*searchPos <= *dstLen\n\t%i, %i", *searchPos, *dstLen);
+
+                iassert(*searchPos <= *dstLen);
+
                 return 1;
             }
             else
@@ -391,7 +375,7 @@ void __cdecl DirectiveFakeIntroSeconds(int32_t localClientNum, const char *arg0,
 
     fakeSeconds = 0;
     fakeSeconds = (int)strtol(arg0, NULL, 10);
-    if ((unsigned int)fakeSeconds > 0x28)
+    if ((uint32_t)fakeSeconds > 0x28)
     {
         fakeSeconds = 0;
         Com_PrintWarning(
@@ -409,9 +393,10 @@ void __cdecl ParseDirective(char *directive, char *resultName, char *resultArg0)
     const char *v3; // eax
     const char *argpos; // [esp+4h] [ebp-4h]
 
-    if (!directive)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 139, 0, "%s", "directive");
+    iassert(directive);
+
     v3 = strstr((char *)directive, (char*)":");
+
     argpos = v3;
     if (v3)
     {
@@ -674,7 +659,7 @@ void __cdecl SafeTranslateHudElemString(int32_t localClientNum, int32_t index, c
 
     if (index)
     {
-        CG_TranslateHudElemMessage(localClientNum, CL_GetConfigString(localClientNum, index + 309), "hudelem string", hudElemString);
+        CG_TranslateHudElemMessage(localClientNum, CL_GetConfigString(localClientNum, CS_LOCALIZED_STRINGS + index), "hudelem string", hudElemString);
     }
 }
 
@@ -832,22 +817,19 @@ double __cdecl HudElemMaterialWidth(const ScreenPlacement *scrPlace, const hudel
     width = HudElemMaterialSpecifiedWidth(scrPlace, elem->alignScreen, elem->width, cghe);
     if (elem->scaleTime <= 0)
         return width;
+
     deltaTime = cghe->timeNow - elem->scaleStartTime;
     if (deltaTime >= elem->scaleTime)
         return width;
+
     fromWidth = HudElemMaterialSpecifiedWidth(scrPlace, elem->fromAlignScreen, elem->fromWidth, cghe);
     if (deltaTime <= 0)
         return fromWidth;
+
     lerp = (double)deltaTime / (double)elem->scaleTime;
-    if (lerp < 0.0 || lerp > 1.0)
-        MyAssertHandler(
-            ".\\cgame\\cg_hudelem.cpp",
-            439,
-            1,
-            "lerp not in [0.0f, 1.0f]\n\t%g not in [%g, %g]",
-            lerp,
-            0.0,
-            1.0);
+
+    bcassert2(lerp, 1.f);
+
     return (float)((width - fromWidth) * lerp + fromWidth);
 }
 
@@ -945,22 +927,18 @@ double __cdecl HudElemMaterialHeight(const ScreenPlacement *scrPlace, const hude
     height = HudElemMaterialSpecifiedHeight(scrPlace, elem->alignScreen, elem->height, cghe);
     if (elem->scaleTime <= 0)
         return height;
+
     deltaTime = cghe->timeNow - elem->scaleStartTime;
     if (deltaTime >= elem->scaleTime)
         return height;
+
     fromHeight = HudElemMaterialSpecifiedHeight(scrPlace, elem->fromAlignScreen, elem->fromHeight, cghe);
     if (deltaTime <= 0)
         return fromHeight;
+
     lerp = (double)deltaTime / (double)elem->scaleTime;
-    if (lerp < 0.0 || lerp > 1.0)
-        MyAssertHandler(
-            ".\\cgame\\cg_hudelem.cpp",
-            464,
-            1,
-            "lerp not in [0.0f, 1.0f]\n\t%g not in [%g, %g]",
-            lerp,
-            0.0,
-            1.0);
+    bcassert2(lerp, 1.f);
+
     return (float)((height - fromHeight) * lerp + fromHeight);
 }
 
@@ -984,10 +962,9 @@ void __cdecl SetHudElemPos(const ScreenPlacement *scrPlace, const hudelem_s *ele
     float lerp; // [esp+48h] [ebp-Ch]
     float to[2]; // [esp+4Ch] [ebp-8h] BYREF
 
-    if (!elem)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 632, 0, "%s", "elem");
-    if (!cghe)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 633, 0, "%s", "cghe");
+    iassert(elem);
+    iassert(cghe);
+
     lerp = HudElemMovementFrac(elem, cghe->timeNow);
     if (lerp == 1.0)
     {
@@ -1036,12 +1013,12 @@ void __cdecl GetHudElemOrg(
     float x; // [esp+18h] [ebp-8h]
     float y; // [esp+1Ch] [ebp-4h]
 
-    if (!orgX)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 582, 0, "%s", "orgX");
-    if (!orgY)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 583, 0, "%s", "orgY");
+    iassert(orgX);
+    iassert(orgY);
+
     x = ScrPlace_ApplyX(scrPlace, xVirtual, (alignScreen >> 3) & 7);
     *orgX = AlignHudElemX(alignOrg, x, width);
+
     y = ScrPlace_ApplyY(scrPlace, yVirtual, alignScreen & 7);
     *orgY = AlignHudElemY(alignOrg, y, height);
 }
@@ -1051,14 +1028,9 @@ double __cdecl AlignHudElemX(int32_t alignOrg, float x, float width)
     uint32_t alignX; // [esp+4h] [ebp-4h]
 
     alignX = (alignOrg >> 2) & 3;
-    if (alignX > 2)
-        MyAssertHandler(
-            ".\\cgame\\cg_hudelem.cpp",
-            558,
-            0,
-            "%s\n\t(alignOrg) = %i",
-            "(alignX == 0 || alignX == 1 || alignX == 2)",
-            alignOrg);
+
+    iassert((alignX == 0 || alignX == 1 || alignX == 2));
+
     return (float)(x - width * s_alignScale[alignX]);
 }
 
@@ -1067,14 +1039,9 @@ double __cdecl AlignHudElemY(int32_t alignOrg, float y, float height)
     int32_t alignY; // [esp+4h] [ebp-4h]
 
     alignY = alignOrg & 3;
-    if ((alignOrg & 3) != 0 && alignY != 1 && alignY != 2)
-        MyAssertHandler(
-            ".\\cgame\\cg_hudelem.cpp",
-            569,
-            0,
-            "%s\n\t(alignOrg) = %i",
-            "(alignY == 0 || alignY == 1 || alignY == 2)",
-            alignOrg);
+
+    iassert((alignY == 0 || alignY == 1 || alignY == 2));
+
     return (float)(y - height * s_alignScale[alignY]);
 }
 
@@ -1127,10 +1094,10 @@ void __cdecl CopyStringToHudElemString(char *string, char *hudElemString)
     const char *v3; // eax
     int32_t stringLen; // [esp+10h] [ebp-4h]
 
-    if (!string)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 718, 0, "%s", "string");
-    if (!hudElemString)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 719, 0, "%s", "hudElemString");
+    iassert(string);
+
+    iassert(hudElemString);
+
     v2 = strlen(string);
     stringLen = v2;
     if (v2 < 256)
@@ -1147,16 +1114,16 @@ void __cdecl CopyStringToHudElemString(char *string, char *hudElemString)
 
 void __cdecl HudElemColorToVec4(const hudelem_color_t *hudElemColor, float *resultColor)
 {
-    if (!hudElemPausedBrightness)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 853, 0, "%s", "hudElemPausedBrightness");
-    if (!cl_paused)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 854, 0, "%s", "cl_paused");
+    iassert(hudElemPausedBrightness);
+    iassert(cl_paused);
+
     *resultColor = (double)hudElemColor->r * 0.003921568859368563;
     resultColor[1] = (double)hudElemColor->g * 0.003921568859368563;
     resultColor[2] = (double)hudElemColor->b * 0.003921568859368563;
     resultColor[3] = (double)hudElemColor->a * 0.003921568859368563;
     if (cl_paused->current.integer)
         Vec3Scale(resultColor, hudElemPausedBrightness->current.value, resultColor);
+
     if (*resultColor < 0.0 || *resultColor > 1.000000953674316)
         MyAssertHandler(
             ".\\cgame\\cg_hudelem.cpp",
@@ -1166,6 +1133,7 @@ void __cdecl HudElemColorToVec4(const hudelem_color_t *hudElemColor, float *resu
             *resultColor,
             0.0,
             1.000000953674316);
+
     if (resultColor[1] < 0.0 || resultColor[1] > 1.000000953674316)
         MyAssertHandler(
             ".\\cgame\\cg_hudelem.cpp",
@@ -1175,6 +1143,7 @@ void __cdecl HudElemColorToVec4(const hudelem_color_t *hudElemColor, float *resu
             resultColor[1],
             0.0,
             1.000000953674316);
+
     if (resultColor[2] < 0.0 || resultColor[2] > 1.000000953674316)
         MyAssertHandler(
             ".\\cgame\\cg_hudelem.cpp",
@@ -1184,6 +1153,7 @@ void __cdecl HudElemColorToVec4(const hudelem_color_t *hudElemColor, float *resu
             resultColor[2],
             0.0,
             1.000000953674316);
+
     if (resultColor[3] < 0.0 || resultColor[3] > 1.000000953674316)
         MyAssertHandler(
             ".\\cgame\\cg_hudelem.cpp",
@@ -1293,8 +1263,7 @@ void __cdecl DrawHudElemClock(int32_t localClientNum, const hudelem_s *elem, con
     Material *faceMaterial; // [esp+90h] [ebp-8h]
     float y; // [esp+94h] [ebp-4h]
 
-    if (cghe->color[3] == 0.0)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 925, 0, "%s", "cghe->color[3]");
+    iassert(cghe->color[3]);
     if (CG_ServerMaterialName(localClientNum, elem->materialIndex, materialName, 0x3Au))
     {
         faceMaterial = Material_RegisterHandle(materialName, 7);
@@ -1337,8 +1306,7 @@ void __cdecl DrawHudElemMaterial(int32_t localClientNum, const hudelem_s *elem, 
     char materialName[64]; // [esp+38h] [ebp-48h] BYREF
     float y; // [esp+7Ch] [ebp-4h]
 
-    if (cghe->color[3] == 0.0)
-        MyAssertHandler(".\\cgame\\cg_hudelem.cpp", 956, 0, "%s", "cghe->color[3]");
+    iassert(cghe->color[3]);
     if (CG_ServerMaterialName(localClientNum, elem->materialIndex, materialName, 0x40u))
     {
         material = Material_RegisterHandle(materialName, 7);
@@ -1817,14 +1785,7 @@ void __cdecl CG_AddDrawSurfsFor3dHudElems(int32_t localClientNum)
 #endif
     {
         elemCount = GetSortedHudElems(localClientNum, elems);
-        if ((unsigned int)elemCount >= 0x3E)
-            MyAssertHandler(
-                ".\\cgame\\cg_hudelem.cpp",
-                1547,
-                0,
-                "elemCount doesn't index ARRAY_COUNT( elems )\n\t%i not in [0, %i)",
-                elemCount,
-                62);
+        bcassert(elemCount, ARRAY_COUNT(elems));
         for (i = 0; i < elemCount; ++i)
         {
             if (elems[i]->type == HE_TYPE_WAYPOINT)

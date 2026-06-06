@@ -458,23 +458,16 @@ gentity_s *__cdecl Scr_GetEntity(unsigned int index)
 
 void __cdecl Scr_FreeHudElem(game_hudelem_s *hud)
 {
-    unsigned int v2; // r31
-
     iassert(hud);
-    v2 = hud - g_hudelems;
-    if (v2 >= 0x100)
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\game\\g_spawn.cpp",
-            919,
-            0,
-            "hud - g_hudelems doesn't index MAX_HUDELEMS_TOTAL\n\t%i not in [0, %i)",
-            v2,
-            256);
-    if (hud->elem.type == HE_TYPE_FREE)
-        MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\game\\g_spawn.cpp", 920, 0, "%s", "hud->elem.type != HE_TYPE_FREE");
-    Scr_NotifyNum(v2, 1u, scr_const.death, 0);
+
+    unsigned int hudIndex = hud - g_hudelems;
+
+    bcassert(hud - g_hudelems, MAX_HUDELEMS_TOTAL);
+    iassert(hud->elem.type != HE_TYPE_FREE);
+
+    Scr_NotifyNum(hudIndex, 1u, scr_const.death, 0);
     Scr_FreeHudElemConstStrings(hud);
-    Scr_FreeEntityNum(v2, 1u);
+    Scr_FreeEntityNum(hudIndex, 1u);
 }
 
 void __cdecl Scr_AddHudElem(game_hudelem_s *hud)
@@ -756,18 +749,18 @@ void __cdecl SP_worldspawn()
     if (I_stricmp(classname, "worldspawn"))
         Com_Error(ERR_DROP, "SP_worldspawn: the first entity isn't worldspawn");
 
-    SV_SetConfigstring(2, "cod-sp");
+    SV_SetConfigstring(CS_GAME_VERSION, "cod-sp");
 
     const char *ambienttrack;
     G_SpawnString(&level.spawnVar, "ambienttrack", "", &ambienttrack);
     if (ambienttrack[0])
-        SV_SetConfigstring(1114, va("n\\%s", ambienttrack));
+        SV_SetConfigstring(CS_AMBIENT, va("n\\%s", ambienttrack));
     else
-        SV_SetConfigstring(1114, "");
+        SV_SetConfigstring(CS_AMBIENT, "");
 
     const char *message;
     G_SpawnString(&level.spawnVar, "message", "", &message);
-    SV_SetConfigstring(3, message);
+    SV_SetConfigstring(CS_MESSAGE, message);
 
     const char *gravity;
     G_SpawnString(&level.spawnVar, "gravity", "800", &gravity);
@@ -778,7 +771,7 @@ void __cdecl SP_worldspawn()
     G_SpawnString(&level.spawnVar, "northyaw", "", &northyaw);
     if (northyaw[0])
     {
-        SV_SetConfigstring(1147, northyaw);
+        SV_SetConfigstring(CS_NORTHYAW, northyaw);
 
         float yaw = DEG2RAD(atof(northyaw));
         level.compassNorth[1] = sin(yaw);
@@ -786,7 +779,7 @@ void __cdecl SP_worldspawn()
     }
     else
     {
-        SV_SetConfigstring(1147, "0");
+        SV_SetConfigstring(CS_NORTHYAW, "0");
         level.compassNorth[0] = 1.0;
         level.compassNorth[1] = 0.0;
     }

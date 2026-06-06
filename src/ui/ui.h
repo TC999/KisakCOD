@@ -48,6 +48,11 @@ struct savegameStatus_s
     int sortDir;
     int displaySavegames[256];
 };
+struct playerProfileStatus_s
+{
+    int sortDir;
+    int displayProfile[64];
+};
 struct uiInfo_s
 {
     UiContext uiDC;
@@ -62,6 +67,10 @@ struct uiInfo_s
     char savegameInfo[256];
     Material *sshotImage;
     char sshotImageName[64];
+
+    const char *playerProfileName[64];
+    int playerProfileCount;
+    playerProfileStatus_s playerProfileStatus;
 };
 struct sharedUiInfo_t // sizeof=0x1C5B0
 {                                       // ...
@@ -86,7 +95,7 @@ void __cdecl UI_SetMap(const char *mapname);
 int __cdecl UI_OwnerDrawVisible(int flags);
 int __cdecl UI_OwnerDrawHandleKey(int ownerDraw, int flags, float *special, int key);
 int __cdecl UI_CompareTimes(qtime_s *tm1, qtime_s *tm2);
-int __cdecl UI_SavegamesQsortCompare(unsigned int *arg1, unsigned int *arg2);
+int __cdecl UI_SavegamesQsortCompare(uint32_t *arg1, uint32_t *arg2);
 void __cdecl UI_Update(const char *name);
 void UI_SaveComplete();
 void *UI_SaveRevert();
@@ -116,7 +125,7 @@ int __cdecl UI_IsFullscreen();
 float __cdecl UI_GetBlurRadius();
 char *__cdecl UI_SafeTranslateString(const char *reference);
 int __cdecl UI_AnyFullScreenMenuVisible(int localClientNum);
-void __cdecl UI_FilterStringForButtonAnimation(char *str, unsigned int strMaxSize);
+void __cdecl UI_FilterStringForButtonAnimation(char *str, uint32_t strMaxSize);
 void __cdecl UI_ReplaceConversions(
     const char *sourceString,
     ConversionArguments *arguments,
@@ -126,6 +135,18 @@ void __cdecl UI_CloseFocusedMenu();
 int __cdecl UI_PopupScriptMenu(const char *menuName, bool useMouse);
 void UI_PlayerStart();
 void __cdecl UI_Refresh();
+
+void __cdecl UI_LoadSavegames(int filter);
+void __cdecl UI_DelSavegame();
+
+void UI_AddPlayerProfiles();
+void UI_CreatePlayerProfile();
+void UI_DeletePlayerProfile();
+void __cdecl UI_LoadPlayerProfile(int localClientNum);
+void UI_SelectActivePlayerProfile();
+void __cdecl UI_SortPlayerProfiles(int selectIndex);
+void __cdecl UI_SelectPlayerProfileIndex(int index);
+int __cdecl UI_GetPlayerProfileListIndexFromName(const char *name);
 int __cdecl UI_OwnerDrawWidth(int ownerDraw, Font_s *font, double scale);
 void __cdecl UI_DrawKeyBindStatus(
     int localClientNum,
@@ -171,6 +192,9 @@ extern const dvar_t *ui_savegame;
 extern const dvar_t *ui_drawCrosshairNames;
 extern const dvar_t *ui_borderLowLightScale;
 extern const dvar_t *ui_campaign;
+extern const dvar_t *ui_playerProfileCount;
+extern const dvar_t *ui_playerProfileSelected;
+extern const dvar_t *ui_playerProfileNameNew;
 
 extern sharedUiInfo_t sharedUiInfo;
 extern SaveTimeGlob ui_saveTimeGlob;

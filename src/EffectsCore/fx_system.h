@@ -192,7 +192,7 @@ double __cdecl FX_GetClientVisibility(int32_t localClientNum, const float *start
 void __cdecl FX_TrailElem_CompressBasis(const float (*inBasis)[3], char (*outBasis)[3]);
 
 double FX_GetServerVisibility(const float *start, const float *end);
-FxEffect *FX_GetClientEffectByIndex(int clientIndex, unsigned int index);
+FxEffect *FX_GetClientEffectByIndex(int clientIndex, uint32_t index);
 int FX_GetClientEffectIndex(int clientIndex, FxEffect *effect);
 
 extern FxSystem fx_systemPool[1];
@@ -1027,18 +1027,17 @@ void __cdecl FX_SpawnAllFutureLooping(
     int32_t elemDefCount,
     const FxSpatialFrame *frameBegin,
     const FxSpatialFrame *frameEnd,
-    long double msecWhenPlayed,
-    long double mescUpdateBegin,
-    long double msecUpdateEnd);
+    int msecWhenPlayed,
+    int mescUpdateBegin);
 void __cdecl FX_SpawnLoopingElems(
     FxSystem *system,
     FxEffect *effect,
     int32_t elemDefIndex,
     const FxSpatialFrame *frameBegin,
     const FxSpatialFrame *frameEnd,
-    long double msecWhenPlayed,
-    long double msecUpdateBegin,
-    long double msecUpdateEnd);
+    int msecWhenPlayed,
+    int msecUpdateBegin,
+    int msecUpdateEnd);
 int32_t __cdecl FX_LimitStabilizeTimeForElemDef_Recurse(
     const FxElemDef *elemDef,
     bool needToSpawnSystem,

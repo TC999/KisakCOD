@@ -770,7 +770,7 @@ bool __cdecl FX_CullElemForSpawn(const FxCamera *camera, const FxElemDef *elemDe
 void __cdecl FX_SetEffectRandomSeed(FxEffect *effect, const FxEffectDef *remoteDef)
 {
     if (FX_EffectAffectsGameplay(remoteDef))
-        effect->randomSeed = (479 * ((unsigned int)(214013 * effect->msecBegin + 2531011) >> 17)) >> 15; // has to be unsigned
+        effect->randomSeed = (479 * ((uint32_t)(214013 * effect->msecBegin + 2531011) >> 17)) >> 15; // has to be unsigned
     else
         effect->randomSeed = 479 * rand() / 0x8000;
 
@@ -959,22 +959,8 @@ FxEffect *__cdecl FX_SpawnBoltedEffect(
         return 0;
     if (FX_NeedsBoltUpdate(def))
     {
-        if (dobjHandle >= 0xFFF)
-            MyAssertHandler(
-                ".\\EffectsCore\\fx_system.cpp",
-                1408,
-                0,
-                "dobjHandle doesn't index FX_DOBJ_HANDLE_NONE\n\t%i not in [0, %i)",
-                dobjHandle,
-                4095);
-        if (boneIndex >= 0x7FF)
-            MyAssertHandler(
-                ".\\EffectsCore\\fx_system.cpp",
-                1409,
-                0,
-                "boneIndex doesn't index FX_BONE_INDEX_NONE\n\t%i not in [0, %i)",
-                boneIndex,
-                2047);
+        bcassert(dobjHandle, FX_DOBJ_HANDLE_NONE);
+        bcassert(boneIndex, FX_BONE_INDEX_NONE);
     }
     else
     {
@@ -982,7 +968,7 @@ FxEffect *__cdecl FX_SpawnBoltedEffect(
         boneIndex = 2047;
     }
     system = FX_GetSystem(localClientNum);
-    return FX_SpawnEffect(system, def, msecBegin, orient.origin, orient.axis, dobjHandle, boneIndex, 255, 0xFFFFu, 0x3FFu);
+    return FX_SpawnEffect(system, def, msecBegin, orient.origin, orient.axis, dobjHandle, boneIndex, 255, -1, ENTITYNUM_NONE);
 }
 
 char __cdecl FX_NeedsBoltUpdate(const FxEffectDef *def)
@@ -1045,8 +1031,7 @@ void __cdecl FX_RetriggerEffect(int32_t localClientNum, FxEffect* effect, int32_
             &effect->framePrev,
             &effect->frameNow,
             effect->msecBegin,
-            effect->msecLastUpdate,
-            0);
+            effect->msecLastUpdate);
         FX_StopEffect(system, effect);
     }
     for (elemClass = 0; elemClass < 3; ++elemClass)
@@ -2116,7 +2101,7 @@ double FX_GetServerVisibility(const float *start, const float *end)
     return FX_GetClientVisibility(fx_serverVisClient, start, end);
 }
 
-FxEffect *FX_GetClientEffectByIndex(int clientIndex, unsigned int index)
+FxEffect *FX_GetClientEffectByIndex(int clientIndex, uint32_t index)
 {
     iassert(clientIndex == 0);
     iassert(index >= 0 && index < FX_EFFECT_LIMIT);
@@ -2130,10 +2115,10 @@ int FX_GetClientEffectIndex(int clientIndex, FxEffect *effect)
 
     iassert(clientIndex == 0);
     iassert(effect);
-    
+
     effects = fx_systemPool[0].effects;
 
     iassert(effect >= &fx_systemPool[0].effects[0] && effect < &fx_systemPool[0].effects[FX_EFFECT_LIMIT]);
 
-    return ((uintptr_t)effect - (uintptr_t)effects);
+    return effect - effects;
 }

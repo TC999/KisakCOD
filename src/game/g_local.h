@@ -596,6 +596,9 @@ void __cdecl Scr_GetObjectField(unsigned int classnum, unsigned int entnum, unsi
 
 
 // g_targets
+
+#define MAX_TARGETS 32
+
 struct target_t
 {
     gentity_s *ent;
@@ -607,7 +610,7 @@ struct target_t
 
 struct TargetGlob
 {
-    target_t targets[32];
+    target_t targets[MAX_TARGETS];
     unsigned int targetCount;
 };
 
@@ -619,7 +622,7 @@ void __cdecl Scr_Target_GetArray();
 int __cdecl TargetIndex(gentity_s *ent);
 void __cdecl Scr_Target_IsTarget();
 void __cdecl Scr_Target_Set();
-int __cdecl Targ_Remove(gentity_s *ent);
+bool Targ_Remove(gentity_s *ent);
 void __cdecl Targ_RemoveAll();
 void __cdecl Scr_Target_Remove();
 int __cdecl G_WorldDirToScreenPos(
@@ -769,7 +772,7 @@ void __cdecl G_BroadcastEntity(gentity_s *ent);
 void __cdecl G_FreeEntityAfterEvent(gentity_s *ent);
 int __cdecl G_SaveFreeEntities(unsigned __int8 *buf);
 void __cdecl G_LoadFreeEntities(unsigned __int8 *buf);
-void __cdecl G_AddPredictableEvent(gentity_s *ent, int event, unsigned int eventParm);
+void __cdecl G_AddPredictableEvent(gentity_s *ent, entity_event_t event, unsigned int eventParm);
 void __cdecl G_AddEvent(gentity_s *ent, unsigned int event, unsigned int eventParm);
 void __cdecl G_RegisterSoundWait(gentity_s *ent, unsigned __int16 index, unsigned int notifyString, int stoppable);
 void __cdecl G_PlaySoundAliasWithNotify(

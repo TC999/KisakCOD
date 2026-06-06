@@ -13,12 +13,29 @@
 #include "cg_main.h"
 #endif
 
-const float sign[4][2] =
+enum
 {
-    { -1.0f, -1.0f },
-    { 1.0f, -1.0f },
-    { 1.0f, 1.0f },
-    {-1.0f, 1.0f }
+    CG_ALIGN_LEFT = 1,
+    CG_ALIGN_RIGHT = 2,
+    CG_ALIGN_CENTER = 3,
+    CG_ALIGN_TOP = 4,
+    CG_ALIGN_BOTTOM = 8,
+
+    CG_ALIGN_X = 3,
+    CG_ALIGN_Y = 0xC,
+    CG_ALIGN_MIDDLE = 0xC
+};
+
+const float sign[8][2] =
+{
+  { -1.0, -1.0 },
+  { 1.0, -1.0 },
+  { 1.0, 1.0 },
+  { -1.0, 1.0 },
+  { 1.0, -1.0 },
+  { 1.0, 1.0 },
+  { -1.0, 1.0 },
+  { -1.0, -1.0 }
 };
 
 float color_0[4];
@@ -205,29 +222,20 @@ int32_t __cdecl CG_DrawDevString(
     float effXScale = xScale;
     float effYScale = yScale;
 #endif
+    iassert((align & CG_ALIGN_X) == CG_ALIGN_LEFT || (align & CG_ALIGN_X) == CG_ALIGN_RIGHT || (align & CG_ALIGN_X) == CG_ALIGN_CENTER);
 
-    if ((align & 3) != 1 && (align & 3) != 2 && (align & 3) != 3)
-        MyAssertHandler(
-            ".\\cgame\\cg_drawtools.cpp",
-            216,
-            0,
-            "%s",
-            "(align & CG_ALIGN_X) == CG_ALIGN_LEFT || (align & CG_ALIGN_X) == CG_ALIGN_RIGHT || (align & CG_ALIGN_X) == CG_ALIGN_CENTER");
     if ((align & 3) == 2)
         x -= (float)R_TextWidth(s, 0, font) * effXScale;
     else if ((align & 3) == 3)
         x -= (float)R_TextWidth(s, 0, font) * effXScale * 0.5f;
 
-    if ((align & 0xC) != 4 && (align & 0xC) != 8 && (align & 0xC) != 0xC)
-        MyAssertHandler(
-            ".\\cgame\\cg_drawtools.cpp",
-            228,
-            0,
-            "%s",
-            "(align & CG_ALIGN_Y) == CG_ALIGN_TOP || (align & CG_ALIGN_Y) == CG_ALIGN_BOTTOM || (align & CG_ALIGN_Y) == CG_ALIGN_MIDDLE");
+    iassert((align & CG_ALIGN_Y) == CG_ALIGN_TOP || (align & CG_ALIGN_Y) == CG_ALIGN_BOTTOM || (align & CG_ALIGN_Y) == CG_ALIGN_MIDDLE);
+
     step = R_TextHeight(font);
+
     if ((align & 0xC) == 4)
         y += (float)step * effYScale;
+
     else if ((align & 0xC) == 0xC)
         y += (float)step * effYScale * 0.5f;
 
@@ -305,7 +313,7 @@ void __cdecl CG_MiniMapChanged(int32_t localClientNum)
     float lowerRight[2]; // [esp+28h] [ebp-8h]
     cg_s *cgameGlob;
 
-    string = CL_GetConfigString(localClientNum, 0x337u);
+    string = CL_GetConfigString(localClientNum, CS_MINIMAP);
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     material = (const char*)Com_Parse(&string);
     cgameGlob->compassMapMaterial = Material_RegisterHandle((char*)material, 7);
@@ -337,7 +345,7 @@ void __cdecl CG_NorthDirectionChanged(int32_t localClientNum)
     const char *pszString; // [esp+10h] [ebp-4h]
     cg_s *cgameGlob;
 
-    pszString = CL_GetConfigString(localClientNum, 0x336u);
+    pszString = CL_GetConfigString(localClientNum, CS_NORTHYAW);
     cgameGlob = CG_GetLocalClientGlobals(localClientNum);
     cgameGlob->compassNorthYaw = atof(pszString);
     v1 = cgameGlob->compassNorthYaw * 0.01745329238474369;

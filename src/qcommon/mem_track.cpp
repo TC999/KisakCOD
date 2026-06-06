@@ -6,10 +6,20 @@
 #include <Windows.h>
 #include "threads.h"
 #include <xanim/xanim.h>
+#include <mutex>
 
 const char* g_mem_track_filename;
 
+// Windows -> STL Lock Testing
+// The TRACK_* functions call lock on the g_crit again when holding the lock (re-entrant), meaning we need a recursive_mutex
+// which is slower, but should mimic functionality 1:1
+// TODO: In the future we should refactor this behavior to use the faster, single std::mutex
+// 
+#if defined(_WIN32)
 static _RTL_CRITICAL_SECTION g_crit;
+#else
+static std::recursive_mutex g_crit;
+#endif
 
 static mem_track_t g_mem_track[0x400];
 static int g_mem_track_count;
@@ -43,9 +53,13 @@ static const char* projName[4] =
 
 void __cdecl track_static_alloc_internal(void* ptr, int size, const char* name, int type)
 {
+#if 0
     mem_track_t* mem_track; // [esp+0h] [ebp-8h]
-
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
 
     iassert( g_mem_track_count < MAX_MEM_TRACK );
 
@@ -58,7 +72,11 @@ void __cdecl track_static_alloc_internal(void* ptr, int size, const char* name, 
     mem_track->filename = g_mem_track_filename;
     track_addbasicinfo(&g_info, type, size);
     ++g_mem_track_count;
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl CG_track_init()
@@ -129,8 +147,9 @@ void __cdecl G_track_init()
 
 void __cdecl TRACK_memtrack()
 {
+#if 0
     track_static_alloc_internal(g_mem_track, (sizeof(mem_track_t) * 0x400)/*20480*/, "g_mem_track", 0);
-    track_static_alloc_internal(&g_crit, sizeof(_RTL_CRITICAL_SECTION)/*24*/, "g_crit", 0);
+    track_static_alloc_internal(&g_crit, sizeof(g_crit)/*24*/, "g_crit", 0);
     track_static_alloc_internal(g_mallocMemInfoArray, (sizeof(TempMemInfo) * 0x400) /*40960*/, "g_mallocMemInfoArray", 0);
     track_static_alloc_internal(g_hunk_track, sizeof(mem_track_t) * 0x80000, "g_hunk_track", 0);
     track_static_alloc_internal(g_hunklow_track, sizeof(mem_track_t) * 0x10000 /*1310720*/, "g_hunklow_track", 0);
@@ -139,9 +158,10 @@ void __cdecl TRACK_memtrack()
     track_static_alloc_internal(g_combinedMemInfoArray, sizeof(TempMemInfo) * 0x400 /*40960*/, "g_combinedMemInfoArray", 0);
     track_static_alloc_internal(g_physicalMemInfoArray, sizeof(TempMemInfo) * 0x400 /*40960*/, "g_physicalMemInfoArray", 0);
     g_mem_track_filename = "";
+#endif
 }
 
-void __cdecl track_addbasicinfo(meminfo_t* info, int type, int size)
+static void __cdecl track_addbasicinfo(meminfo_t* info, int type, int size)
 {
     int v3; // [esp+8h] [ebp-8h]
     int v4; // [esp+Ch] [ebp-4h]
@@ -186,13 +206,23 @@ void __cdecl track_addbasicinfo(meminfo_t* info, int type, int size)
 
 void __cdecl track_z_commit(int size, int type)
 {
+#if 0
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     track_addbasicinfo(&g_virtualMemInfo, type, size);
     track_addbasicinfo(&g_info, type, size);
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
-TempMemInfo* __cdecl GetTempMemInfo(
+static TempMemInfo* __cdecl GetTempMemInfo(
     int permanent,
     const char* name,
     int type,
@@ -310,23 +340,39 @@ static void __cdecl RemoveTempMemInfo(
 
 void __cdecl track_physical_alloc(int size, const char* name, int type)
 {
+#if 0
     if (size)
     {
+#if defined(_WIN32)
         EnterCriticalSection(&g_crit);
+#else
+        std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
         if (size <= 0)
             RemoveTempMemInfo(-size, 0, name, type, 7, g_physicalMemInfoArray, &g_physicalMemInfoCount);
         else
             AddTempMemInfo(size, 0, 0, name, type, 7, g_physicalMemInfoArray, &g_physicalMemInfoCount);
         track_addbasicinfo(&g_info, type, size);
+
+#if defined(_WIN32)
         LeaveCriticalSection(&g_crit);
+#endif
     }
+#endif
 }
 
 void __cdecl track_hunk_alloc(int size, int pos, const char* name, int type)
 {
+#if 0
     mem_track_t* mem_track; // [esp+8h] [ebp-4h]
 
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     if (type != 14 && type != 16)
     {
         g_mem_track[1].size -= size;
@@ -344,14 +390,24 @@ void __cdecl track_hunk_alloc(int size, int pos, const char* name, int type)
     mem_track->pos = pos;
     track_addbasicinfo(&g_info, type, size);
     ++g_hunk_track_count;
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_hunk_allocLow(int size, int pos, const char* name, int type)
 {
+#if 0
     mem_track_t* mem_track; // [esp+8h] [ebp-4h]
 
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     if (type != 14 && type != 16)
     {
         g_mem_track[1].size -= size;
@@ -369,25 +425,45 @@ void __cdecl track_hunk_allocLow(int size, int pos, const char* name, int type)
     mem_track->pos = pos;
     track_addbasicinfo(&g_info, type, size);
     ++g_hunklow_track_count;
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_set_hunk_size(int size)
 {
+#if 0
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     iassert( !g_mem_track[TRACK_FREE].size );
     g_mem_track[1].size = size;
     track_addbasicinfo(&g_info, 1, size);
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_hunk_ClearToMarkHigh(int mark)
 {
+#if 0
     mem_track_t* info; // [esp+8h] [ebp-Ch]
     int size; // [esp+Ch] [ebp-8h]
     int type; // [esp+10h] [ebp-4h]
 
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     while (g_hunk_track_count)
     {
         info = &g_hunk_track[g_hunk_track_count - 1];
@@ -403,16 +479,26 @@ void __cdecl track_hunk_ClearToMarkHigh(int mark)
             g_mem_track[1].size += size;
         }
     }
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_hunk_ClearToMarkLow(int mark)
 {
+#if 0
     mem_track_t* info; // [esp+8h] [ebp-Ch]
     int size; // [esp+Ch] [ebp-8h]
     int type; // [esp+10h] [ebp-4h]
 
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     while (g_hunklow_track_count)
     {
         info = &g_hunklow_track[g_hunklow_track_count - 1];
@@ -428,7 +514,11 @@ void __cdecl track_hunk_ClearToMarkLow(int mark)
             g_mem_track[1].size += size;
         }
     }
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 static void track_temp_reset()
@@ -442,19 +532,35 @@ static void track_temp_high_reset()
 
 void __cdecl track_hunk_ClearToStart()
 {
+#if 0
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     track_temp_reset();
     track_temp_high_reset();
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void track_init()
 {
+#if 0
     mem_track_t* mem_track; // [esp+0h] [ebp-4h]
 
+#if defined(_WIN32)
     InitializeCriticalSection(&g_crit);
-    memset((unsigned __int8*)&g_info, 0, sizeof(g_info));
-    memset((unsigned __int8*)&g_virtualMemInfo, 0, sizeof(g_virtualMemInfo));
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
+    memset((uint8_t*)&g_info, 0, sizeof(g_info));
+    memset((uint8_t*)&g_virtualMemInfo, 0, sizeof(g_virtualMemInfo));
     for (g_mem_track_count = 0; g_mem_track_count < 37; ++g_mem_track_count)
     {
         mem_track = &g_mem_track[g_mem_track_count];
@@ -603,53 +709,67 @@ void track_init()
     UI_track_init();
     R_Track_Init();
     g_mem_track_filename = "";
+#endif
 }
 
 void __cdecl track_shutdown(int project)
 {
-    //const char* v1; // eax
-    //mem_track_node_s* node; // [esp+0h] [ebp-8h]
-    //int leak_size; // [esp+4h] [ebp-4h]
-    //
-    //EnterCriticalSection(&g_crit);
-    //leak_size = 0;
-    //for (node = g_head; node; node = node->next)
-    //{
-    //    if (node->project == project)
-    //    {
-    //        if (project || I_stricmp(node->data.name, "MSS_MallocCallback"))
-    //        {
-    //            if (!alwaysfails)
-    //            {
-    //                v1 = va("memory leak of '%s' in %s", node->data.name, projName[project]);
-    //                MyAssertHandler(".\\qcommon\\mem_track.cpp", 1211, 0, v1);
-    //            }
-    //        }
-    //        else
-    //        {
-    //            leak_size += node->data.size;
-    //        }
-    //    }
-    //}
-    //LeaveCriticalSection(&g_crit);
+#if 0
+    const char* v1; // eax
+    mem_track_node_s* node; // [esp+0h] [ebp-8h]
+    int leak_size; // [esp+4h] [ebp-4h]
+    
+    EnterCriticalSection(&g_crit);
+    leak_size = 0;
+    for (node = g_head; node; node = node->next)
+    {
+        if (node->project == project)
+        {
+            if (project || I_stricmp(node->data.name, "MSS_MallocCallback"))
+            {
+                if (!alwaysfails)
+                {
+                    v1 = va("memory leak of '%s' in %s", node->data.name, projName[project]);
+                    MyAssertHandler(".\\qcommon\\mem_track.cpp", 1211, 0, v1);
+                }
+            }
+            else
+            {
+                leak_size += node->data.size;
+            }
+        }
+    }
+    LeaveCriticalSection(&g_crit);
+#endif
 }
 
 void __cdecl track_getbasicinfo(meminfo_t* info)
 {
+#if 0
     int MinSpecImageMemory; // eax
 
     iassert( info );
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
-    memset((unsigned __int8*)info, 0, sizeof(meminfo_t));
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
+    memset((uint8_t*)info, 0, sizeof(meminfo_t));
     //MinSpecImageMemory = R_GetMinSpecImageMemory(); // KISAKTODO
     MinSpecImageMemory = 1337;
     track_addbasicinfo(info, 35, MinSpecImageMemory);
     track_addbasicmeminfo(info, &g_info);
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_addbasicmeminfo(meminfo_t* sum, meminfo_t* in)
 {
+#if 0
     int type; // [esp+0h] [ebp-4h]
 
     for (type = 0; type < 37; ++type)
@@ -657,6 +777,16 @@ void __cdecl track_addbasicmeminfo(meminfo_t* sum, meminfo_t* in)
     sum->total += in->total;
     sum->nonSwapTotal += in->nonSwapTotal;
     sum->nonSwapMinSpecTotal += in->nonSwapMinSpecTotal;
+#endif
+}
+
+static int __cdecl mem_track_compare(uint32_t *elem1, uint32_t *elem2)
+{
+    if (*((uint8_t *)elem1 + 16) < (int)*((uint8_t *)elem2 + 16))
+        return -1;
+    if (*((uint8_t *)elem1 + 16) <= (int)*((uint8_t *)elem2 + 16))
+        return elem1[2] - elem2[2];
+    return 1;
 }
 
 void __cdecl track_PrintInfo()
@@ -692,7 +822,7 @@ void __cdecl track_PrintInfo()
     int minSpecImageMemory; // [esp+10Ch] [ebp-4h]
 
     EnterCriticalSection(&g_crit);
-    memset((unsigned __int8*)&info, 0, sizeof(info));
+    memset((uint8_t*)&info, 0, sizeof(info));
     minSpecImageMemory = 0;
     minSpecImageMemory = R_GetMinSpecImageMemory();
     len2 = g_hunklow_track_count + g_hunk_track_count + g_mem_track_count;
@@ -731,7 +861,7 @@ void __cdecl track_PrintInfo()
             mem_track->filename = nodea->data.filename;
             mem_track->size = nodea->data.size;
             mem_track->pos = nodea->data.pos;
-            *(unsigned int*)&mem_track->type = *(unsigned int*)&nodea->data.type;
+            *(uint32_t*)&mem_track->type = *(uint32_t*)&nodea->data.type;
             nodea = nodea->next;
             ++mem_track;
         }
@@ -743,7 +873,7 @@ void __cdecl track_PrintInfo()
             mem_track->filename = p_data->filename;
             mem_track->size = p_data->size;
             mem_track->pos = p_data->pos;
-            *(unsigned int*)&mem_track->type = *(unsigned int*)&p_data->type;
+            *(uint32_t*)&mem_track->type = *(uint32_t*)&p_data->type;
             ++i;
             ++mem_track;
         }
@@ -765,7 +895,7 @@ void __cdecl track_PrintInfo()
                     mem_tracka->filename = v1->filename;
                     mem_tracka->size = v1->size;
                     mem_tracka->pos = v1->pos;
-                    *(unsigned int*)&mem_tracka->type = *(unsigned int*)&v1->type;
+                    *(uint32_t*)&mem_tracka->type = *(uint32_t*)&v1->type;
                     break;
                 }
             }
@@ -887,15 +1017,18 @@ void __cdecl track_PrintInfo()
 
 void __cdecl track_PrintAllInfo()
 {
+#if 0
     if (Sys_IsMainThread())
     {
         track_PrintInfo();
         //track_PrintTempInfo();
     }
+#endif
 }
 
 void __cdecl UI_track_init()
 {
+#if 0
     g_mem_track_filename = "ui_main";
     TRACK_ui_main();
     g_mem_track_filename = "ui_shared";
@@ -908,6 +1041,7 @@ void __cdecl UI_track_init()
     TRACK_g_memtrack();
     g_mem_track_filename = "ui_shared_obj";
     TRACK_ui_shared_obj();
+#endif
 }
 
 
@@ -939,6 +1073,7 @@ void __cdecl TRACK_profileMem() { /* THUNK */ }
 
 void __cdecl R_Track_Init()
 {
+#if 0
     g_mem_track_filename = "r_bsp_load_obj";
     TRACK_r_bsp_load_obj();
     g_mem_track_filename = "rb_sky";
@@ -1003,59 +1138,88 @@ void __cdecl R_Track_Init()
     TRACK_rb_sunshadow();
     g_mem_track_filename = "rb_tess";
     KISAK_NULLSUB();
+#endif
 }
 
 void __cdecl track_z_alloc(int size, const char* name, int type, char* pos, int project, int overhead)
 {
-    //mem_track_node_s* node; // [esp+8h] [ebp-4h]
-    //
-    //EnterCriticalSection(&g_crit);
-    //g_mem_track[0].size += overhead;
-    //track_addbasicinfo(&g_info, 0, overhead);
-    //if (type != 14 && type != 16 && type != 35)
-    //{
-    //    AddTempMemInfo(size, 0, 0, name, type, 2, g_mallocMemInfoArray, &g_mallocMemInfoCount);
-    //    g_malloc_mem_size += size;
-    //    if (g_malloc_mem_high < g_malloc_mem_size)
-    //        g_malloc_mem_high = g_malloc_mem_size;
-    //}
-    //node = (mem_track_node_s*)(pos - 32);
-    //iassert( name[0] );
-    //node->data.name = name;
-    //node->data.filename = "";
-    //node->data.size = size;
-    //node->data.type = type;
-    //node->data.usageType = 2;
-    //node->next = g_head;
-    //node->prev = 0;
-    //node->project = project;
-    //if (g_head)
-    //    g_head->prev = node;
-    //g_head = (mem_track_node_s*)(pos - 32);
-    //track_addbasicinfo(&g_info, type, size);
-    //LeaveCriticalSection(&g_crit);
+#if 0
+    mem_track_node_s* node; // [esp+8h] [ebp-4h]
+    
+    EnterCriticalSection(&g_crit);
+    g_mem_track[0].size += overhead;
+    track_addbasicinfo(&g_info, 0, overhead);
+    if (type != 14 && type != 16 && type != 35)
+    {
+        AddTempMemInfo(size, 0, 0, name, type, 2, g_mallocMemInfoArray, &g_mallocMemInfoCount);
+        g_malloc_mem_size += size;
+        if (g_malloc_mem_high < g_malloc_mem_size)
+            g_malloc_mem_high = g_malloc_mem_size;
+    }
+    node = (mem_track_node_s*)(pos - 32);
+    iassert( name[0] );
+    node->data.name = name;
+    node->data.filename = "";
+    node->data.size = size;
+    node->data.type = type;
+    node->data.usageType = 2;
+    node->next = g_head;
+    node->prev = 0;
+    node->project = project;
+    if (g_head)
+        g_head->prev = node;
+    g_head = (mem_track_node_s*)(pos - 32);
+    track_addbasicinfo(&g_info, type, size);
+    LeaveCriticalSection(&g_crit);
+#endif
 }
 
 void __cdecl track_temp_free(int size, int permanent, const char* name)
 {
+#if 0
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     RemoveTempMemInfo(size, permanent, name, 10, 6, g_tempMemInfoArray, &g_tempMemInfoCount);
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_temp_alloc(int size, int hunkSize, int permanent, const char* name)
 {
+#if 0
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     AddTempMemInfo(size, hunkSize, permanent, name, 10, 6, g_tempMemInfoArray, &g_tempMemInfoCount);
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_temp_high_clear(int permanent)
 {
+#if 0
     int i; // [esp+0h] [ebp-8h]
     TempMemInfo* tempMemInfo; // [esp+4h] [ebp-4h]
 
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     i = 0;
     tempMemInfo = g_tempHighMemInfoArray;
     while (i < g_tempHighMemInfoCount)
@@ -1065,26 +1229,31 @@ void __cdecl track_temp_high_clear(int permanent)
         ++i;
         ++tempMemInfo;
     }
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 void __cdecl track_temp_high_alloc(int size, int hunkSize, int permanent, const char* name)
 {
+#if 0
+#if defined(_WIN32)
     EnterCriticalSection(&g_crit);
+#else
+    std::lock_guard<std::recursive_mutex> lock(g_crit);
+#endif
+
     AddTempMemInfo(size, hunkSize, permanent, name, 10, 6, g_tempHighMemInfoArray, &g_tempHighMemInfoCount);
+
+#if defined(_WIN32)
     LeaveCriticalSection(&g_crit);
+#endif
+#endif
 }
 
 double __cdecl ConvertToMB(int bytes)
 {
     return (float)((double)bytes / 1048576.0);
-}
-
-int __cdecl mem_track_compare(unsigned int *elem1, unsigned int *elem2)
-{
-    if (*((unsigned __int8 *)elem1 + 16) < (int)*((unsigned __int8 *)elem2 + 16))
-        return -1;
-    if (*((unsigned __int8 *)elem1 + 16) <= (int)*((unsigned __int8 *)elem2 + 16))
-        return elem1[2] - elem2[2];
-    return 1;
 }

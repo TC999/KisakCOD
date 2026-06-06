@@ -178,6 +178,11 @@ void __cdecl SP_script_brushmodel(gentity_s *self)
     {
         InitScriptMover(self);
         SV_LinkEntity(self);
+
+#ifdef KISAK_SP
+        if ((self->spawnflags & 1) != 0)
+            self->flags |= FL_DYNAMICPATH | FL_AUTO_BLOCKPATHS;
+#endif
     }
     else
     {
@@ -198,6 +203,11 @@ void __cdecl SP_script_model(gentity_s *pSelf)
     pSelf->r.svFlags |= 4u;
     pSelf->r.contents = 8320;
     SV_LinkEntity(pSelf);
+#ifdef KISAK_SP
+    pSelf->flags |= FL_SUPPORTS_ANIMSCRIPTED; // KISAKTODO: flags here different in blops, why?
+    iassert(pSelf->handler == ENT_HANDLER_SCRIPT_MOVER);
+    pSelf->handler = ENT_HANDLER_SCRIPT_MODEL;
+#endif
 }
 
 void __cdecl SP_script_origin(gentity_s *pSelf)
@@ -290,6 +300,7 @@ void __cdecl ScriptMover_Move(gentity_s *pEnt, const float *vPos, float fTotalTi
     origin[0] = pEnt->r.currentOrigin[0];
     origin[1] = pEnt->r.currentOrigin[1];
     origin[2] = pEnt->r.currentOrigin[2];
+
     ScriptMover_SetupMove(
         &pEnt->s.lerp.pos,
         vPos,
@@ -299,8 +310,7 @@ void __cdecl ScriptMover_Move(gentity_s *pEnt, const float *vPos, float fTotalTi
         origin,
         &pEnt->mover.speed,
         &pEnt->mover.midTime,
-        &pEnt->mover.aDecelTime,
-        //(float *)&pEnt->u30,
+        &pEnt->mover.decelTime,
         pEnt->mover.pos1,
         pEnt->mover.pos2,
         pEnt->mover.pos3);
@@ -661,7 +671,7 @@ void __cdecl ScriptEntCmd_DevAddPitch(scr_entref_t entref)
     ScriptEnt_DevAddRotate(entref, 1u);
 }
 
-void __cdecl ScriptEnt_DevAddRotate(scr_entref_t entref, unsigned int iAxis)
+void __cdecl ScriptEnt_DevAddRotate(scr_entref_t entref, uint32_t iAxis)
 {
     const char *v2; // eax
     float v3; // [esp+14h] [ebp-60h]
@@ -1261,7 +1271,7 @@ const BuiltinMethodDef methods_1[18] =
 
 void(__cdecl *__cdecl ScriptEnt_GetMethod(const char **pName))(scr_entref_t)
 {
-    unsigned int i; // [esp+18h] [ebp-4h]
+    uint32_t i; // [esp+18h] [ebp-4h]
 
     for (i = 0; i < 0x12; ++i)
     {

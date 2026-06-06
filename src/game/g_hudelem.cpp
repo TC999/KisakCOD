@@ -269,10 +269,14 @@ void __cdecl HudElem_DestroyAll()
 
 void __cdecl HudElem_SetLocalizedString(game_hudelem_s *hud, int32_t offset)
 {
-    const char *string; // [esp+0h] [ebp-8h]
+#ifdef KISAK_MP
+    *(int *)((char *)&hud->elem.type + fields_0[offset].ofs) = G_LocalizedStringIndex((char*)Scr_GetIString(0));
+#elif KISAK_SP
+    char string[1024]; // [esp+0h] [ebp-408h] BYREF
 
-    string = Scr_GetIString(0);
-    *(int *)((char *)&hud->elem.type + fields_0[offset].ofs) = G_LocalizedStringIndex((char*)string);
+    Scr_ConstructMessageString(0, 0, "Hud Elem String", string, 0x400u);
+    *(int *)((char *)&hud->elem.type + fields_0[offset].ofs) = G_LocalizedStringIndex(string);
+#endif
 }
 
 void __cdecl HudElem_SetFlagForeground(game_hudelem_s *hud, int32_t offset)
@@ -449,32 +453,31 @@ void __cdecl HudElem_GetGlowAlpha(game_hudelem_s *hud, int32_t offset)
 
 void __cdecl HudElem_SetFontScale(game_hudelem_s *hud, int32_t offset)
 {
-    const char *v2; // eax
-    const char *v3; // eax
-    const char *v4; // eax
     float scale; // [esp+10h] [ebp-4h]
-
+    
     if (fields_0[offset].ofs != 20)
         MyAssertHandler(".\\game\\g_hudelem.cpp", 585, 0, "%s", "fields[offset].ofs == HEOFS( elem.fontScale )");
+
     scale = Scr_GetFloat(0);
     if (scale <= 0.0)
     {
-        v2 = va("font scale was %g; should be > 0", scale);
-        Scr_Error(v2);
+        Scr_Error(va("font scale was %g; should be > 0", scale));
     }
-    if (scale >= 1.399999976158142)
+
+#ifdef KISAK_MP
+    if (scale >= 1.4f)
     {
-        if (scale > 4.599999904632568)
+        if (scale > 4.6f)
         {
-            v4 = va("font scale %f is above the expected maximum %f", scale, 4.599999904632568);
-            Scr_Error(v4);
+            Scr_Error(va("font scale %f is above the expected maximum %f", scale, 4.6f));
         }
     }
     else
     {
-        v3 = va("font scale %f is below the expected minimum %f", scale, 1.399999976158142);
-        Scr_Error(v3);
+        Scr_Error(va("font scale %f is below the expected minimum %f", scale, 1.4f));
     }
+#endif
+
     hud->elem.fontScale = scale;
 }
 
@@ -745,10 +748,12 @@ void __cdecl HECmd_ClearAllTextAfterHudElem(scr_entref_t entref)
     game_hudelem_s *hud; // [esp+4h] [ebp-4h]
 
     hud = HECmd_GetHudElem(entref);
+
     if (!hud->elem.text)
         Scr_Error("Hud elem doesn't reference any text.  Make sure to call setText before using clearAllTextAfterHudElem.");
+
     for (configStringIndex = hud->elem.text + 1; configStringIndex < 512; ++configStringIndex)
-        SV_SetConfigstring(configStringIndex + 309, (char *)"");
+        SV_SetConfigstring(CS_LOCALIZED_STRINGS + configStringIndex, (char *)"");
 }
 
 void __cdecl HECmd_SetMaterial(scr_entref_t entref)
@@ -1432,7 +1437,7 @@ void HudElem_UpdateClient(gclient_s *client)
     //game_hudelem_s *v4; // r29
     //int v5; // r28
     //hudelem_s *i; // r31
-    //unsigned int remainder; // r29
+    //uint32_t remainder; // r29
     //hudelem_s *v8; // r31
     //char *v9; // r11
     //hudelem_s *v10; // r10
@@ -1524,8 +1529,8 @@ void HudElem_UpdateClient(gclient_s *client)
     //        do
     //        {
     //            type_high = HIBYTE(v10->type);
-    //            v12 = (unsigned __int8)*v9 - type_high;
-    //            if ((unsigned __int8)*v9 != type_high)
+    //            v12 = (uint8_t)*v9 - type_high;
+    //            if ((uint8_t)*v9 != type_high)
     //                break;
     //            ++v9;
     //            v10 = (hudelem_s *)((char *)v10 + 1);

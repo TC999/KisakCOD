@@ -11,7 +11,7 @@
 //int surfaceTypeSoundListCount 828010f0     bg_weapons_load_obj.obj
 //struct SurfaceTypeSoundList *surfaceTypeSoundLists 828011f8     bg_weapons_load_obj.obj
 
-unsigned int g_playerAnimTypeNamesCount;
+uint32_t g_playerAnimTypeNamesCount;
 
 SurfaceTypeSoundList surfaceTypeSoundLists[16];
 
@@ -611,47 +611,29 @@ void __cdecl TRACK_bg_weapons_load_obj()
 
 const char *__cdecl BG_GetWeaponTypeName(weapType_t type)
 {
-    if ((unsigned int)type >= WEAPTYPE_NUM)
-        MyAssertHandler(
-            ".\\bgame\\bg_weapons_load_obj.cpp",
-            851,
-            0,
-            "type doesn't index ARRAY_COUNT( szWeapTypeNames )\n\t%i not in [0, %i)",
-            type,
-            4);
+    bcassert(type < WEAPTYPE_NUM, ARRAY_COUNT(szWeapTypeNames));
+
     return szWeapTypeNames[type];
 }
 
 const char *__cdecl BG_GetWeaponClassName(weapClass_t type)
 {
-    if ((unsigned int)type >= WEAPCLASS_NUM)
-        MyAssertHandler(
-            ".\\bgame\\bg_weapons_load_obj.cpp",
-            859,
-            0,
-            "type doesn't index ARRAY_COUNT( szWeapClassNames )\n\t%i not in [0, %i)",
-            type,
-            10);
+    bcassert(type < WEAPCLASS_NUM, ARRAY_COUNT(szWeapClassNames));
+
     return szWeapClassNames[type];
 }
 
 const char *__cdecl BG_GetWeaponInventoryTypeName(weapInventoryType_t type)
 {
-    if ((unsigned int)type >= WEAPINVENTORYCOUNT)
-        MyAssertHandler(
-            ".\\bgame\\bg_weapons_load_obj.cpp",
-            867,
-            0,
-            "type doesn't index ARRAY_COUNT( szWeapInventoryTypeNames )\n\t%i not in [0, %i)",
-            type,
-            4);
+    bcassert(type < WEAPINVENTORYCOUNT, ARRAY_COUNT(szWeapInventoryTypeNames));
+
     return szWeapInventoryTypeNames[type];
 }
 
 #ifdef KISAK_MP
 void __cdecl BG_LoadWeaponStrings()
 {
-    unsigned int i; // [esp+0h] [ebp-4h]
+    uint32_t i; // [esp+0h] [ebp-4h]
 
     for (i = 0; i < g_playerAnimTypeNamesCount; ++i)
         BG_InitWeaponString(i, g_playerAnimTypeNames[i]);
@@ -733,14 +715,11 @@ char __cdecl G_ParseAIWeaponAccurayGraphFile(
     parseInfo_t *token; // [esp+4h] [ebp-4h]
     parseInfo_t *tokena; // [esp+4h] [ebp-4h]
 
-    if (!buffer)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 23, 0, "%s", "buffer");
-    if (!fileName)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 24, 0, "%s", "fileName");
-    if (!knots)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 25, 0, "%s", "knots");
-    if (!knotCount)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 26, 0, "%s", "knotCount");
+    iassert(buffer);
+    iassert(fileName);
+    iassert(knots);
+    iassert(knotCount);
+
     Com_BeginParseSession(fileName);
     tokenb = Com_Parse(&buffer);
     v4 = atoi(tokenb->token);
@@ -804,32 +783,30 @@ char __cdecl G_ParseWeaponAccurayGraphInternal(
 
     last = "WEAPONACCUFILE";
     len = strlen("WEAPONACCUFILE");
-    if (!weaponDef)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 88, 0, "%s", "weaponDef");
-    if (!graphName)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 89, 0, "%s", "graphName");
-    if (!knots)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 90, 0, "%s", "knots");
-    if (!knotCount)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 91, 0, "%s", "knotCount");
-    if (!dirName)
-        MyAssertHandler(".\\game\\g_weapon_load_obj.cpp", 92, 0, "%s", "dirName");
+    iassert(weaponDef);
+    iassert(graphName);
+    iassert(knots);
+    iassert(knotCount);
+    iassert(dirName);
+
     if (weaponDef->weapType && weaponDef->weapType != WEAPTYPE_PROJECTILE)
         return 1;
+
     if (!*graphName)
         return 1;
+
     snprintf(string, ARRAYSIZE(string), "accuracy/%s/%s", dirName, graphName);
     v6 = FS_FOpenFileByMode(string, &f, FS_READ);
     if (v6 >= 0)
     {
-        FS_Read((unsigned __int8 *)buffer, len, f);
+        FS_Read((uint8_t *)buffer, len, f);
         buffer[len] = 0;
         if (!strncmp(buffer, last, len))
         {
             if (v6 - len < 0x2000)
             {
-                memset((unsigned __int8 *)buffer, 0, 0x2000u);
-                FS_Read((unsigned __int8 *)buffer, v6 - len, f);
+                memset((uint8_t *)buffer, 0, 0x2000u);
+                FS_Read((uint8_t *)buffer, v6 - len, f);
                 buffer[v6 - len] = 0;
                 FS_FCloseFile(f);
                 knotCounta = 0;
@@ -866,14 +843,14 @@ char __cdecl G_ParseWeaponAccurayGraphInternal(
 
 char __cdecl G_ParseWeaponAccurayGraphs(WeaponDef *weaponDef)
 {
-    unsigned int size; // [esp+4h] [ebp-8Ch]
+    uint32_t size; // [esp+4h] [ebp-8Ch]
     int weaponType; // [esp+8h] [ebp-88h]
     int accuracyGraphKnotCount; // [esp+Ch] [ebp-84h] BYREF
     float accuracyGraphKnots[16][2]; // [esp+10h] [ebp-80h] BYREF
 
     for (weaponType = 0; weaponType < 2; ++weaponType)
     {
-        memset((unsigned __int8 *)accuracyGraphKnots, 0, sizeof(accuracyGraphKnots));
+        memset((uint8_t *)accuracyGraphKnots, 0, sizeof(accuracyGraphKnots));
         accuracyGraphKnotCount = 0;
         if (!G_ParseWeaponAccurayGraphInternal(
             weaponDef,
@@ -891,7 +868,7 @@ char __cdecl G_ParseWeaponAccurayGraphs(WeaponDef *weaponDef)
                 "G_ParseWeaponAccurayGraphs",
                 9);
             weaponDef->originalAccuracyGraphKnots[weaponType] = weaponDef->accuracyGraphKnots[weaponType];
-            memcpy((unsigned __int8 *)weaponDef->accuracyGraphKnots[weaponType], (unsigned __int8 *)accuracyGraphKnots, size);
+            memcpy((uint8_t *)weaponDef->accuracyGraphKnots[weaponType], (uint8_t *)accuracyGraphKnots, size);
             weaponDef->accuracyGraphKnotCount[weaponType] = accuracyGraphKnotCount;
             weaponDef->originalAccuracyGraphKnotCount[weaponType] = weaponDef->accuracyGraphKnotCount[weaponType];
         }
@@ -927,10 +904,9 @@ int __cdecl Weapon_GetStringArrayIndex(const char *value, char **stringArray, in
 {
     int arrayIndex; // [esp+0h] [ebp-4h]
 
-    if (!value)
-        MyAssertHandler(".\\bgame\\bg_weapons_load_obj.cpp", 945, 0, "%s", "value");
-    if (!stringArray)
-        MyAssertHandler(".\\bgame\\bg_weapons_load_obj.cpp", 946, 0, "%s", "stringArray");
+    iassert(value);
+    iassert(stringArray);
+
     for (arrayIndex = 0; arrayIndex < arraySize; ++arrayIndex)
     {
         if (!I_stricmp(value, stringArray[arrayIndex]))
@@ -951,10 +927,11 @@ snd_alias_list_t **__cdecl BG_RegisterSurfaceTypeSounds(const char *surfaceSound
     snd_alias_list_t *defaultAliasList; // [esp+12Ch] [ebp-8h]
     int i; // [esp+130h] [ebp-4h]
 
-    if (!surfaceSoundBase)
-        MyAssertHandler(".\\bgame\\bg_weapons_load_obj.cpp", 965, 0, "%s", "surfaceSoundBase");
+    iassert(surfaceSoundBase);
+
     if (!*surfaceSoundBase)
         return 0;
+
     for (i = 0; i < surfaceTypeSoundListCount; ++i)
     {
         if (!I_strcmp(surfaceTypeSoundLists[i].surfaceSoundBase, surfaceSoundBase))
@@ -990,10 +967,10 @@ snd_alias_list_t **__cdecl BG_RegisterSurfaceTypeSounds(const char *surfaceSound
     return result;
 }
 
-int __cdecl BG_ParseWeaponDefSpecificFieldType(unsigned __int8 *pStruct, const char *pValue, int iFieldType)
+int __cdecl BG_ParseWeaponDefSpecificFieldType(uint8_t *pStruct, const char *pValue, int iFieldType)
 {
-    unsigned __int16 LowercaseString_DONE; // ax
-    unsigned __int16 v5; // ax
+    uint16_t LowercaseString_DONE; // ax
+    uint16_t v5; // ax
     int result; // eax
     char v7; // [esp+3h] [ebp-91h]
     char *v8; // [esp+8h] [ebp-8Ch]
@@ -1228,15 +1205,17 @@ void __cdecl BG_CheckWeaponDamageRanges(WeaponDef *weapDef)
 
 void __cdecl BG_CheckProjectileValues(WeaponDef *weaponDef)
 {
-    if (weaponDef->weapType != WEAPTYPE_PROJECTILE)
-        MyAssertHandler(".\\bgame\\bg_weapons_load_obj.cpp", 1277, 0, "%s", "weaponDef->weapType == WEAPTYPE_PROJECTILE");
+    iassert(weaponDef->weapType == WEAPTYPE_PROJECTILE);
+
     if ((double)weaponDef->iProjectileSpeed <= 0.0)
         Com_Error(ERR_DROP, "Projectile speed for WeapType %s must be greater than 0.0", weaponDef->szDisplayName);
+
     if (weaponDef->destabilizationCurvatureMax >= 1000000000.0f || weaponDef->destabilizationCurvatureMax < 0.0)
         Com_Error(
             ERR_DROP,
             "Destabilization angle for for WeapType %s must be between 0 and 45 degrees",
             weaponDef->szDisplayName);
+
     if (weaponDef->destabilizationRateTime < 0.0)
         Com_Error(ERR_DROP, "Destabilization rate time for for WeapType %s must be non-negative", weaponDef->szDisplayName);
 }
@@ -1262,21 +1241,21 @@ WeaponDef *__cdecl BG_LoadWeaponDefInternal(const char *one, const char *two)
     v11 = FS_FOpenFileByMode(dest, &f, FS_READ);
     if (v11 >= 0)
     {
-        FS_Read((unsigned __int8 *)buffer, len, f);
+        FS_Read((uint8_t *)buffer, len, f);
         buffer[len] = 0;
         if (!strncmp(buffer, "WEAPONFILE", len))
         {
-            if ((unsigned int)(v11 - len) < 0x2800)
+            if ((uint32_t)(v11 - len) < 0x2800)
             {
-                memset((unsigned __int8 *)buffer, 0, 0x2800u);
-                FS_Read((unsigned __int8 *)buffer, v11 - len, f);
+                memset((uint8_t *)buffer, 0, 0x2800u);
+                FS_Read((uint8_t *)buffer, v11 - len, f);
                 buffer[v11 - len] = 0;
                 FS_FCloseFile(f);
                 if (Info_Validate(buffer))
                 {
                     SetConfigString((char **)weapDef, two);
                     if (ParseConfigStringToStructCustomSize(
-                        (unsigned __int8 *)weapDef,
+                        (uint8_t *)weapDef,
                         weaponDefFields,
                         502,
                         buffer,

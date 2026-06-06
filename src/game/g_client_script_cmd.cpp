@@ -1331,14 +1331,10 @@ void __cdecl G_ProcessCommandNotifies()
 
 void __cdecl PlayerCmd_notifyOnCommand(scr_entref_t entref)
 {
-    const char *String; // r31
-    const char *v2; // r3
-
     if (Scr_GetNumParam() != 2)
         Scr_Error("USAGE: <player> notifyOnCommand( <notify>, <command> )\n");
-    String = Scr_GetString(0);
-    v2 = Scr_GetString(1);
-    Cmd_RegisterNotification(v2, String);
+
+    Cmd_RegisterNotification(Scr_GetString(1), Scr_GetString(0));
 }
 
 void __cdecl PlayerCmd_playerADS(scr_entref_t entref)
@@ -1788,7 +1784,7 @@ void __cdecl PlayerCmd_HideViewmodel(scr_entref_t entref)
     p_ps = &v2->client->ps;
     weaponstate = p_ps->weaponstate;
     if (weaponstate == 7 || weaponstate == 9 || weaponstate == 11 || weaponstate == 10 || weaponstate == 8)
-        BG_AddPredictableEventToPlayerstate(2, weaponstate, p_ps);
+        BG_AddPredictableEventToPlayerstate(EV_STOP_WEAPON_SOUND, weaponstate, p_ps);
     PM_ResetWeaponState(p_ps);
     SV_GameSendServerCommand(v1, "hideViewModel");
 }
@@ -2192,54 +2188,39 @@ void __cdecl PlayerCmd_SetEQLerp(scr_entref_t entref)
 
 void __cdecl PlayerCmd_SetEQ(scr_entref_t entref)
 {
-    unsigned __int16 v1; // r26
-    const char *v2; // r3
-    const char *String; // r29
-    int Int; // r28
-    int v5; // r27
-    const char *v6; // r31
-    double Float; // fp31
-    const char *v8; // r3
-    double v9; // [sp+48h] [-58h]
-
-    v1 = entref.entnum;
     if (entref.classnum)
     {
-        v2 = "not an entity";
-        goto LABEL_7;
+        Scr_ObjectError("not an entity");
     }
-    if (entref.entnum >= 0x880u)
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\game\\g_client_script_cmd.cpp",
-            1621,
-            0,
-            "%s",
-            "entref.entnum < MAX_GENTITIES");
-    if (!g_entities[v1].client)
+
+    iassert(entref.entnum < MAX_GENTITIES);
+
+    if (!g_entities[entref.entnum].client)
     {
-        v2 = va("entity %i is not a player", v1);
-    LABEL_7:
-        Scr_ObjectError(v2);
+        Scr_ObjectError(va("entity %i is not a player", entref.entnum));
     }
+
     if (Scr_GetNumParam() == 7)
     {
-        String = Scr_GetString(0);
-        Int = Scr_GetInt(1);
-        v5 = Scr_GetInt(2);
-        v6 = Scr_GetString(3);
-        if (I_stricmp(v6, "lowpass")
-            && I_stricmp(v6, "highpass")
-            && I_stricmp(v6, "lowshelf")
-            && I_stricmp(v6, "highshelf"))
-        {
-            if (I_stricmp(v6, "bell"))
-                Scr_Error("Unknown eq filter type\n");
-        }
-        Float = Scr_GetFloat(4);
-        Scr_GetFloat(5);
-        v9 = Scr_GetFloat(6);
-        v8 = va("eq \"%s\" %i %i %i %g %g %g", String, Int, v5, Float, v9);
-        SV_GameSendServerCommand(v1, v8);
+        const char *type = Scr_GetString(3);
+
+        SND_EQTYPE eqType = SND_EQTYPE_INVALID;
+
+        if (!I_stricmp(type, "lowpass"))
+            eqType = SND_EQTYPE_LOWPASS;
+        else if (!I_stricmp(type, "highpass"))
+            eqType = SND_EQTYPE_HIGHPASS;
+        else if (!I_stricmp(type, "lowshelf"))
+            eqType = SND_EQTYPE_LOWSHELF;
+        else if (!I_stricmp(type, "highshelf"))
+            eqType = SND_EQTYPE_HIGHSHELF;
+        else if (!I_stricmp(type, "bell"))
+            eqType = SND_EQTYPE_BELL;
+        else
+            Scr_Error("Unknown eq filter type\n");
+
+        SV_GameSendServerCommand(entref.entnum, va("eq \"%s\" %i %i %i %g %g %g", 
+            Scr_GetString(0), Scr_GetInt(1), Scr_GetInt(2), eqType, Scr_GetFloat(4), Scr_GetFloat(5), Scr_GetFloat(6)));
     }
     else
     {
@@ -2474,7 +2455,7 @@ void __cdecl PlayerCmd_SetChannelVolumes(scr_entref_t entref)
     }
     String = Scr_GetString(1);
 
-    int csIndex = G_FindConfigstringIndex(String, 2535, 16, 0, 0);
+    int csIndex = G_FindConfigstringIndex(String, 2503, 16, 0, 0); // CS_SHELLSHOCKS (PC SP, was Xbox 2535)
     ConstString = Scr_GetConstString(0);
     v7 = 2;
     if (ConstString != scr_const.snd_channelvolprio_holdbreath)

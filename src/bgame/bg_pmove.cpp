@@ -170,7 +170,7 @@ void __cdecl PM_playerTrace(
     }
 }
 
-void __cdecl PM_AddEvent(playerState_s *ps, uint32_t newEvent)
+void __cdecl PM_AddEvent(playerState_s *ps, entity_event_t newEvent)
 {
     BG_AddPredictableEventToPlayerstate(newEvent, 0, ps);
 }
@@ -397,8 +397,6 @@ bool __cdecl PlayerProneAllowed(pmove_t *pm)
 
 void __cdecl PM_FootstepEvent(pmove_t *pm, pml_t *pml, char iOldBobCycle, char iNewBobCycle, int32_t bFootStep)
 {
-    uint32_t v5; // eax
-    uint32_t v6; // [esp+4h] [ebp-70h]
     float mins[3] = { 0 }; // [esp+14h] [ebp-60h] BYREF
     float vEnd[3] = { 0 }; // [esp+20h] [ebp-54h] BYREF
     int32_t iClipMask; // [esp+2Ch] [ebp-48h]
@@ -442,33 +440,31 @@ void __cdecl PM_FootstepEvent(pmove_t *pm, pml_t *pml, char iOldBobCycle, char i
                 iSurfaceType = (trace.surfaceFlags & 0x1F00000) >> 20;
                 if (trace.fraction == 1.0 || !iSurfaceType)
                     iSurfaceType = 21;
-                BG_AddPredictableEventToPlayerstate(0x49u, iSurfaceType, ps);
+                BG_AddPredictableEventToPlayerstate(EV_FOOTSTEP_RUN, iSurfaceType, ps);
             }
         }
         else if (bFootStep)
         {
-            v6 = PM_GroundSurfaceType(pml);
-            v5 = PM_FootstepType(ps, pml);
-            BG_AddPredictableEventToPlayerstate(v5, v6, ps);
+            BG_AddPredictableEventToPlayerstate(PM_FootstepType(ps, pml), PM_GroundSurfaceType(pml), ps);
         }
     }
 }
 
-int32_t __cdecl PM_FootstepType(playerState_s *ps, pml_t *pml)
+entity_event_t PM_FootstepType(playerState_s *ps, pml_t *pml)
 {
     if (!PM_GroundSurfaceType(pml))
-        return 0;
+        return EV_NONE;
 
     if ((ps->pm_flags & PMF_PRONE) != 0)
-        return 75;
+        return EV_FOOTSTEP_PRONE;
 
     if ((ps->pm_flags & PMF_WALKING) != 0 || ps->leanf != 0.0)
-        return 74;
+        return EV_FOOTSTEP_WALK;
 
     if (PM_IsSprinting(ps))
-        return 72;
+        return EV_FOOTSTEP_SPRINT;
 
-    return 73;
+    return EV_FOOTSTEP_RUN;
 }
 
 bool __cdecl PM_ShouldMakeFootsteps(pmove_t *pm)
@@ -1169,13 +1165,13 @@ void __cdecl PM_UpdatePronePitch(pmove_t *pm, pml_t *pml)
                     50.0);
             if (!v2)
             {
-                BG_AddPredictableEventToPlayerstate(7u, 0, ps);
+                BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_CROUCH, 0, ps);
                 ps->pm_flags |= PMF_NO_PRONE;
             }
         }
         else if (pml->groundPlane && !pml->groundTrace.walkable)
         {
-            BG_AddPredictableEventToPlayerstate(7u, 0, ps);
+            BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_CROUCH, 0, ps);
         }
         if (pml->groundPlane)
         {
@@ -1942,25 +1938,27 @@ void __cdecl PM_Friction(playerState_s *ps, pml_t *pml)
 
 void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, const float *wishdir, float wishspeed, float accel)
 {
-    float value = 0; // [esp+Ch] [ebp-44h]
-    float wishVelocity[3] = { 0 }; // [esp+1Ch] [ebp-34h] BYREF
-    float pushDir[3] = { 0 }; // [esp+28h] [ebp-28h] BYREF
-    float pushLen = 0; // [esp+34h] [ebp-1Ch]
-    float canPush = 0; // [esp+38h] [ebp-18h]
-    float inertiaspeed = 0; // [esp+3Ch] [ebp-14h]
-    float control = 0; // [esp+40h] [ebp-10h]
-    float addspeed = 0; // [esp+44h] [ebp-Ch]
-    float currentspeed = 0; // [esp+48h] [ebp-8h]
-    float accelspeed = 0; // [esp+4Ch] [ebp-4h]
+    float value; // [esp+Ch] [ebp-44h]
+    float wishVelocity[3]; // [esp+1Ch] [ebp-34h] BYREF
+    float pushDir[3]; // [esp+28h] [ebp-28h] BYREF
+    float pushLen; // [esp+34h] [ebp-1Ch]
+    float canPush; // [esp+38h] [ebp-18h]
+    float inertiaspeed; // [esp+3Ch] [ebp-14h]
+    float control; // [esp+40h] [ebp-10h]
+    float addspeed; // [esp+44h] [ebp-Ch]
+    float currentspeed; // [esp+48h] [ebp-8h]
+    float accelspeed; // [esp+4Ch] [ebp-4h]
 
     if ((ps->pm_flags & PMF_LADDER) != 0)
     {
         Vec3Scale(wishdir, wishspeed, wishVelocity);
         Vec3Sub(wishVelocity, ps->velocity, pushDir);
         pushLen = Vec3Normalize(pushDir);
+
         canPush = accel * pml->frametime * wishspeed;
-        if (pushLen < (double)canPush)
+        if (canPush > pushLen)
             canPush = pushLen;
+
         Vec3Mad(ps->velocity, canPush, pushDir, ps->velocity);
     }
     else
@@ -1968,24 +1966,30 @@ void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, const float *wis
         iassert(ps);
 
         currentspeed = Vec3Dot(ps->velocity, wishdir);
-
         addspeed = wishspeed - currentspeed;
-        if (addspeed > 0.0)
+        if (addspeed <= 0)
         {
-            if (stopspeed->current.value <= (double)wishspeed)
-                value = wishspeed;
-            else
-                value = stopspeed->current.value;
-
-            control = value;
-            accelspeed = accel * pml->frametime * value;
-
-            if (addspeed < (double)accelspeed)
-                accelspeed = addspeed;
-
-            inertiaspeed = PM_PlayerInertia(ps, accelspeed, wishdir);
-            Vec3Mad(ps->velocity, inertiaspeed, wishdir, ps->velocity);
+            return;
         }
+
+        if (stopspeed->current.value <= (double)wishspeed)
+            value = wishspeed;
+        else
+            value = stopspeed->current.value;
+
+        control = value;
+        accelspeed = accel * pml->frametime * value;
+
+        if (accelspeed > addspeed)
+            accelspeed = addspeed;
+
+        // Inertia system slows down immediate turn arounds (A/D/A/D spam, or 180 sprint's)
+        // It's set to 50, which is so high it doesn't trigger. I couldn't get it to trigger over 10
+        inertiaspeed = PM_PlayerInertia(ps, accelspeed, wishdir);
+        Vec3Mad(ps->velocity, inertiaspeed, wishdir, ps->velocity);
+
+        // blops removed inertia and just did this:
+        //Vec3Mad(ps->velocity, accelspeed, wishdir, ps->velocity);
     }
 }
 
@@ -2110,80 +2114,80 @@ double __cdecl PM_MoveScale(playerState_s *ps, float fmove, float rmove, float u
     return scalea;
 }
 
-double __cdecl PM_CmdScale(playerState_s *ps, usercmd_s *cmd)
+float __cdecl PM_CmdScale(playerState_s *ps, usercmd_s *cmd)
 {
-    float v3; // [esp+0h] [ebp-18h]
-    float v4; // [esp+8h] [ebp-10h]
+    float total; // [esp+0h] [ebp-18h]
     int32_t max; // [esp+Ch] [ebp-Ch]
     float scale; // [esp+14h] [ebp-4h]
-    float scalea; // [esp+14h] [ebp-4h]
 
     iassert(ps);
 
-    v4 = (float)(cmd->rightmove * cmd->rightmove + cmd->forwardmove * cmd->forwardmove);
-    v3 = sqrt(v4);
-    max = abs8(cmd->forwardmove);
+    total = sqrt((float)(cmd->rightmove * cmd->rightmove 
+        + cmd->forwardmove * cmd->forwardmove));
 
-    if (abs8(cmd->rightmove) > max)
-        max = abs8(cmd->rightmove);
+    max = abs(cmd->forwardmove);
+
+    if (abs(cmd->rightmove) > max)
+        max = abs(cmd->rightmove);
 
     if (!max)
-        return 0.0;
+        return 0;
 
-    scale = (double)ps->speed * (double)max / (v3 * 127.0);
+    scale = (float)ps->speed * max / (total * 127.0f);
 
     if ((ps->pm_flags & PMF_WALKING) == 0 && ps->leanf == 0.0)
-        scalea = scale * 1.0;
+        scale = scale * 1.0;
     else
-        scalea = scale * 0.4000000059604645;
+        scale = scale * 0.4000000059604645;
 
     if (ps->pm_type == PM_NOCLIP)
-        scalea = scalea * 3.0;
+        scale *= 3.0;
 
     if (ps->pm_type == PM_UFO)
-        scalea = scalea * 6.0;
+        scale *= 6.0;
 
 #ifdef KISAK_MP
     if (ps->pm_type == PM_SPECTATOR)
-        return (float)(scalea * player_spectateSpeedScale->current.value);
+        return (float)(scale * player_spectateSpeedScale->current.value);
 #endif
-    return scalea;
+
+    return scale;
 }
 
 void __cdecl PM_AirMove(pmove_t *pm, pml_t *pml)
 {
-    float wishdir[3] = { 0 }; // [esp+40h] [ebp-50h] BYREF
-    float wishvel[3] = { 0 }; // [esp+4Ch] [ebp-44h]
+    float wishdir[3]; // [esp+40h] [ebp-50h] BYREF
+    float wishvel[3]; // [esp+4Ch] [ebp-44h]
      
     usercmd_s cmd; // [esp+6Ch] [ebp-24h] BYREF
 
     iassert(pm);
-
     playerState_s* ps = pm->ps; // [esp+68h] [ebp-28h]
-
     iassert(ps);
 
+    // normal slowdown
     PM_Friction(ps, pml);
 
-    float fmove = (float)pm->cmd.forwardmove; // [esp+3Ch] [ebp-54h]
-    float smove = (float)pm->cmd.rightmove; // [esp+5Ch] [ebp-34h]
+    float fmove = pm->cmd.forwardmove; // [esp+3Ch] [ebp-54h]
+    float smove = pm->cmd.rightmove; // [esp+5Ch] [ebp-34h]
 
     memcpy(&cmd, &pm->cmd, sizeof(cmd));
-
     float scale = PM_CmdScale(ps, &cmd); // [esp+64h] [ebp-2Ch]
+
     pml->forward[2] = 0.0;
     pml->right[2] = 0.0;
     Vec3Normalize(pml->forward);
     Vec3Normalize(pml->right);
 
-    for (int32_t i = 0; i < 2; ++i) // [esp+60h] [ebp-30h]
-        wishvel[i] = pml->forward[i] * fmove + pml->right[i] * smove;
-
+    for (int32_t i = 0; i < 2; ++i)
+    {
+        wishvel[i] = pml->forward[i]*fmove + pml->right[i]*smove;
+    }
     wishvel[2] = 0.0;
-    wishdir[0] = wishvel[0];
-    wishdir[1] = wishvel[1];
-    wishdir[2] = 0.0;
+
+    Vec3Copy(wishvel, wishdir);
     float wishspeed = Vec3Normalize(wishdir); // [esp+58h] [ebp-38h]
+
     wishspeed = wishspeed * scale;
     PM_Accelerate(ps, pml, wishdir, wishspeed, 1.0);
 
@@ -2218,7 +2222,7 @@ void __cdecl PM_SetMovementDir(pmove_t *pm, pml_t *pml)
         {
             speed = vectoyaw(ps->vLadderVec) + 180.0;
             moveyaw = (int)AngleDelta(speed, ps->viewangles[1]);
-            if ((int)abs32(moveyaw) > 90)
+            if ((int)abs(moveyaw) > 90)
             {
                 if (moveyaw <= 0)
                     moveyaw = -90;
@@ -2251,7 +2255,7 @@ void __cdecl PM_SetMovementDir(pmove_t *pm, pml_t *pml)
                     v2 = (v6 - v3) * 360.0;
                     moveyaw = (int)v2;
                 }
-                if ((int)abs32(moveyaw) > 90)
+                if ((int)abs(moveyaw) > 90)
                 {
                     if (moveyaw <= 0)
                         moveyaw = -90;
@@ -2265,7 +2269,7 @@ void __cdecl PM_SetMovementDir(pmove_t *pm, pml_t *pml)
     else
     {
         moveyaw = (int)AngleDelta(ps->proneDirection, ps->viewangles[1]);
-        if ((int)abs32(moveyaw) > 90)
+        if ((int)abs(moveyaw) > 90)
         {
             if (moveyaw <= 0)
                 moveyaw = -90;
@@ -2773,10 +2777,6 @@ void __cdecl PM_GroundTrace(pmove_t *pm, pml_t *pml)
 
 void __cdecl PM_CrashLand(playerState_s *ps, pml_t *pml)
 {
-    uint32_t v2; // eax
-    uint32_t v3; // eax
-    uint32_t v4; // eax
-    uint32_t v5; // eax
     int32_t v6; // [esp+8h] [ebp-50h]
     float v7; // [esp+Ch] [ebp-4Ch]
     int32_t v8; // [esp+18h] [ebp-40h]
@@ -2888,8 +2888,7 @@ void __cdecl PM_CrashLand(playerState_s *ps, pml_t *pml)
                 ps->pm_flags |= PMF_TIME_HARDLANDING;
                 Vec3Scale(ps->velocity, fSpeedMult, ps->velocity);
             }
-            v2 = PM_DamageLandingForSurface(pml);
-            BG_AddPredictableEventToPlayerstate(v2, damage, ps);
+            BG_AddPredictableEventToPlayerstate(PM_DamageLandingForSurface(pml), damage, ps);
         }
         else if (fallHeight > 4.0f)
         {
@@ -2897,57 +2896,55 @@ void __cdecl PM_CrashLand(playerState_s *ps, pml_t *pml)
             {
                 if (fallHeight >= 12.0f)
                 {
-                    Vec3Scale(ps->velocity, 0.67000002f, ps->velocity);
-                    v5 = PM_HardLandingForSurface(pml);
-                    BG_AddPredictableEventToPlayerstate(v5, viewDip, ps);
+                    Vec3Scale(ps->velocity, 0.67f, ps->velocity);
+                    BG_AddPredictableEventToPlayerstate(PM_HardLandingForSurface(pml), viewDip, ps);
                 }
                 else
                 {
-                    v4 = PM_MediumLandingForSurface(pml);
-                    BG_AddPredictableEventToPlayerstate(v4, surfaceType, ps);
+                    BG_AddPredictableEventToPlayerstate(PM_MediumLandingForSurface(pml), surfaceType, ps);
                 }
             }
             else
             {
-                v3 = PM_LightLandingForSurface(pml);
-                BG_AddPredictableEventToPlayerstate(v3, surfaceType, ps);
+                BG_AddPredictableEventToPlayerstate(PM_LightLandingForSurface(pml), surfaceType, ps);
             }
         }
     }
 }
 
-int32_t __cdecl PM_LightLandingForSurface(pml_t *pml)
+entity_event_t __cdecl PM_LightLandingForSurface(pml_t *pml)
 {
     if (PM_GroundSurfaceType(pml))
-        return 74;
+        return EV_FOOTSTEP_WALK;
     else
-        return 0;
+        return EV_NONE;
 }
 
-int32_t __cdecl PM_MediumLandingForSurface(pml_t *pml)
+entity_event_t __cdecl PM_MediumLandingForSurface(pml_t *pml)
 {
     if (PM_GroundSurfaceType(pml))
-        return 73;
+        return EV_FOOTSTEP_RUN;
     else
-        return 0;
+        return EV_NONE;
 }
 
-uint32_t __cdecl PM_HardLandingForSurface(pml_t *pml)
+entity_event_t __cdecl PM_HardLandingForSurface(pml_t *pml)
 {
     uint32_t iSurfType = PM_GroundSurfaceType(pml); // [esp+0h] [ebp-4h]
     if (iSurfType)
-        return iSurfType + 77;
+        return (entity_event_t)(EV_LANDING_FIRST + iSurfType);
     else
-        return 0;
+        return EV_NONE;
 }
 
-uint32_t __cdecl PM_DamageLandingForSurface(pml_t *pml)
+entity_event_t __cdecl PM_DamageLandingForSurface(pml_t *pml)
 {
     uint32_t iSurfType = PM_GroundSurfaceType(pml); // [esp+0h] [ebp-4h]
+
     if (iSurfType)
-        return iSurfType + 106;
+        return (entity_event_t)(EV_LANDING_PAIN_FIRST + iSurfType);
     else
-        return 0;
+        return EV_NONE;
 }
 
 int32_t __cdecl PM_CorrectAllSolid(pmove_t *pm, pml_t *pml, trace_t *trace)
@@ -3101,7 +3098,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
         if ((pm->cmd.buttons & 0x100) != 0)
         {
             pm->cmd.buttons &= ~0x100u;
-            BG_AddPredictableEventToPlayerstate(6, 0, ps);
+            BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_STAND, 0, ps);
         }
         ps->viewHeightTarget = 0;
         ps->viewHeightCurrent = 0.0;
@@ -3129,7 +3126,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
         {
             ps->viewHeightTarget = 60;
             ps->pm_flags &= ~(PMF_PRONE | PMF_DUCKED);
-            BG_AddPredictableEventToPlayerstate(6u, 0, ps);
+            BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_STAND, 0, ps);
             PM_ViewHeightAdjust(pm, pml);
         }
         else if ((ps->pm_flags & PMF_SPRINTING) != 0)
@@ -3137,7 +3134,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
             ps->viewHeightTarget = 60;
             ps->eFlags &= 0xFFFFFFF3;
             ps->pm_flags &= ~(PMF_PRONE | PMF_DUCKED);
-            BG_AddPredictableEventToPlayerstate(6u, 0, ps);
+            BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_STAND, 0, ps);
             PM_ViewHeightAdjust(pm, pml);
         }
         else
@@ -3176,7 +3173,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
                     if ((ps->pm_flags & PMF_LADDER) != 0 && (pm->cmd.buttons & 0x300) != 0)
                     {
                         pm->cmd.buttons &= 0xFFFFFCFF;
-                        BG_AddPredictableEventToPlayerstate(6u, 0, ps);
+                        BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_STAND, 0, ps);
                     }
                     if ((pm->cmd.buttons & 0x100) == 0 || (ps->pm_flags & PMF_RESPAWNED) != 0)
                     {
@@ -3196,7 +3193,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
                                 if (trace.allsolid)
                                 {
                                     if ((pm->cmd.buttons & 0x1000) == 0)
-                                        BG_AddPredictableEventToPlayerstate(8u, 2u, ps);
+                                        BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_PRONE, 2u, ps);
                                 }
                                 else
                                 {
@@ -3239,7 +3236,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
                                 if (trace.allsolid)
                                 {
                                     if ((pm->cmd.buttons & 0x1000) == 0)
-                                        BG_AddPredictableEventToPlayerstate(8u, 1u, ps);
+                                        BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_PRONE, 1u, ps);
                                 }
                                 else
                                 {
@@ -3268,7 +3265,7 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
                             if (trace.allsolid)
                             {
                                 if ((pm->cmd.buttons & 0x1000) == 0)
-                                    BG_AddPredictableEventToPlayerstate(7u, 1u, ps);
+                                    BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_CROUCH, 1u, ps);
                             }
                             else
                             {
@@ -3290,9 +3287,9 @@ void __cdecl PM_CheckDuck(pmove_t *pm, pml_t *pml)
                         if ((pm->cmd.buttons & 0x1000) == 0)
                         {
                             if ((ps->pm_flags & PMF_PRONE) != 0 || (ps->pm_flags & PMF_DUCKED) != 0)
-                                BG_AddPredictableEventToPlayerstate(7u, 0, ps);
+                                BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_CROUCH, 0, ps);
                             else
-                                BG_AddPredictableEventToPlayerstate(6u, 0, ps);
+                                BG_AddPredictableEventToPlayerstate(EV_STANCE_FORCE_STAND, 0, ps);
                         }
                     }
                 }
@@ -4119,7 +4116,7 @@ void __cdecl PM_FoliageSounds(pmove_t *pm)
             PM_playerTrace(pm, &trace, ps->origin, mins, maxs, ps->origin, ps->clientNum, 2);
             if (trace.startsolid)
             {
-                PM_AddEvent(ps, 1u);
+                PM_AddEvent(ps, EV_FOLIAGE_SOUND);
                 ps->foliageSoundTime = pm->cmd.serverTime;
             }
         }
@@ -4135,10 +4132,9 @@ void __cdecl PM_DropTimers(playerState_s *ps, pml_t *pml)
 #ifdef KISAK_SP
     int pm_time; // r11
     int msec; // r10
-    unsigned int v6; // r11
+    uint32_t v6; // r11
 
-    if (!ps)
-        MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\bgame\\bg_pmove.cpp", 3679, 0, "%s", "ps");
+    iassert(ps);
     pm_time = ps->pm_time;
     if (pm_time)
     {
@@ -4509,7 +4505,7 @@ void __cdecl PM_LadderMove(pmove_t *pm, pml_t *pml)
         PM_StepSlideMove(pm, pml, 0);
         scale = vectoyaw(ps->vLadderVec) + 180.0;
         moveyaw = (int)AngleDelta(scale, ps->viewangles[1]);
-        if ((int)abs32(moveyaw) > 75)
+        if ((int)abs(moveyaw) > 75)
         {
             if (moveyaw <= 0)
                 moveyaw = -75;
@@ -4578,8 +4574,6 @@ void __cdecl PM_MeleeChargeUpdate(pmove_t *pm, pml_t *pml)
 
 void __cdecl TurretNVGTrigger(pmove_t *pm)
 {
-     
-
     iassert(pm);
     playerState_s* ps = pm->ps; // [esp+8h] [ebp-4h]
     iassert(ps);
@@ -4589,12 +4583,12 @@ void __cdecl TurretNVGTrigger(pmove_t *pm)
         if ((ps->weapFlags & 0x40) != 0)
         {
             ps->weapFlags &= ~0x40u;
-            PM_AddEvent(ps, 0x41u);
+            PM_AddEvent(ps, EV_NIGHTVISION_REMOVE);
         }
         else
         {
             ps->weapFlags |= 0x40u;
-            PM_AddEvent(ps, 0x40u);
+            PM_AddEvent(ps, EV_NIGHTVISION_WEAR);
         }
     }
 }

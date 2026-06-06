@@ -662,8 +662,8 @@ void __cdecl AimAssist_AddToTargetList(AimAssistGlobals *aaGlob, const AimScreen
         if (aaGlob->screenTargetCount == 64)
             --aaGlob->screenTargetCount;
         memmove(
-            (unsigned __int8 *)&aaGlob->screenTargets[low + 1],
-            (unsigned __int8 *)&aaGlob->screenTargets[low],
+            (uint8_t *)&aaGlob->screenTargets[low + 1],
+            (uint8_t *)&aaGlob->screenTargets[low],
             52 * (aaGlob->screenTargetCount - low));
         memcpy(&aaGlob->screenTargets[low], screenTarget, sizeof(aaGlob->screenTargets[low]));
         ++aaGlob->screenTargetCount;
@@ -1015,8 +1015,11 @@ void __cdecl AimAssist_ApplyMeleeCharge(const AimInput *input, AimOutput *output
             if (v4 <= (double)screenTarget->distSqr)
             {
                 v3 = 255.0 * 255.0;
-                if (v3 < (double)screenTarget->distSqr)
-                    MyAssertHandler(".\\aim_assist\\aim_assist.cpp", 1501, 0, "%s", "screenTarget->distSqr <= SQR( 255.0f )");
+#ifndef SQR
+#define SQR(x) ((x) * (x))
+#endif
+                iassert(screenTarget->distSqr <= SQR(255.0f));
+
                 targetDir[0] = screenTarget->aimPos[0] - aaGlob->viewOrigin[0];
                 targetDir[1] = screenTarget->aimPos[1] - aaGlob->viewOrigin[1];
                 output->meleeChargeYaw = vectoyaw(targetDir);

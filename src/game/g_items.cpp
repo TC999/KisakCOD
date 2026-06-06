@@ -124,13 +124,13 @@ void __cdecl Touch_Item(gentity_s *ent, gentity_s *other, int32_t touched)
     const char *szInternalName; // [esp-4h] [ebp-60h]
     gitem_s *item; // [esp+0h] [ebp-5Ch]
     char cleanname[68]; // [esp+4h] [ebp-58h] BYREF
-    int32_t pickupEvent; // [esp+50h] [ebp-Ch] BYREF
+    entity_event_t pickupEvent; // [esp+50h] [ebp-Ch] BYREF
     int32_t pickedUp; // [esp+54h] [ebp-8h]
     int32_t weapIndex; // [esp+58h] [ebp-4h]
 
     if (ent->active)
     {
-        pickupEvent = 0;
+        pickupEvent = EV_NONE;
         ent->active = 0;
         if (other->client)
         {
@@ -150,7 +150,7 @@ void __cdecl Touch_Item(gentity_s *ent, gentity_s *other, int32_t touched)
 #endif
                     iassert(item);  
                     iassert(item->giType == IT_WEAPON);
-                    pickedUp = WeaponPickup(ent, other, &pickupEvent, touched);
+                    pickedUp = WeaponPickup(ent, other, (int32_t*)&pickupEvent, touched);
 
 #ifdef KISAK_MP
                     if (pickupEvent)
@@ -459,24 +459,23 @@ bool __cdecl WeaponPickup_LeechFromWeaponEnt(
 
 void __cdecl PrintPlayerPickupMessage(gentity_s *player, uint32_t weapIdx, WeaponDef *weapDef)
 {
-    const char *v3; // eax
+    const char *text;
 
     iassert(player);
     iassert(weapDef);
 
 #ifdef KISAK_MP
     if (BG_WeaponIsClipOnly(weapIdx))
-        v3 = va("*WARNING* One or more selections were skipped as they could not be interpreted as c data", 102, weapDef->szDisplayName);
+        text = va("%c \"GAME_PICKUP_CLIPONLY_AMMO\x15%s\"", 'f', weapDef->szDisplayName);
     else
-        v3 = va("*WARNING* One or more selections were skipped as they could not be interpreted as c data", 102, weapDef->szDisplayName);
-    SV_GameSendServerCommand(player - g_entities, SV_CMD_CAN_IGNORE, v3);
+        text = va("%c \"GAME_PICKUP_AMMO\x15%s\"", 'f', weapDef->szDisplayName);
+    SV_GameSendServerCommand(player - g_entities, SV_CMD_CAN_IGNORE, text);
 #elif KISAK_SP
-    const char *v8;
     if (BG_WeaponIsClipOnly(weapIdx))
-        v8 = va("gm \"GAME_PICKUP_CLIPONLY_AMMO %s\"", weapDef->szDisplayName);
+        text = va("gm \"GAME_PICKUP_CLIPONLY_AMMO\x15%s\"", weapDef->szDisplayName);
     else
-        v8 = va("gm \"GAME_PICKUP_AMMO %s\"", weapDef->szDisplayName);
-    SV_GameSendServerCommand(player - g_entities, v8);
+        text = va("gm \"GAME_PICKUP_AMMO\x15%s\"", weapDef->szDisplayName);
+    SV_GameSendServerCommand(player - g_entities, text);
 #endif
 }
 
@@ -582,7 +581,7 @@ void __cdecl PrintMessage_CannotGrabItem(gentity_s *ent, gentity_s *player, int3
             if (Com_BitCheckAssert(ps->ps.weapons, weapIndex, 16))
             {
                 WeaponDef = BG_GetWeaponDef(weapIndex);
-                v6 = va("%c \"GAME_PICKUP_CANTCARRYMOREAMMO", 102, WeaponDef->szDisplayName);
+                v6 = va("%c \"GAME_PICKUP_CANTCARRYMOREAMMO\x15%s\"", 102, WeaponDef->szDisplayName);
             }
             else
             {
@@ -594,7 +593,7 @@ void __cdecl PrintMessage_CannotGrabItem(gentity_s *ent, gentity_s *player, int3
             if (BG_PlayerHasWeapon(&player->client->ps, weapIndex))
             {
                 WeaponDef = BG_GetWeaponDef(weapIndex);
-                v10 = va("gm \"GAME_PICKUP_CANTCARRYMOREAMMO %s\"", WeaponDef->szDisplayName);
+                v10 = va("gm \"GAME_PICKUP_CANTCARRYMOREAMMO\x15%s\"", WeaponDef->szDisplayName);
             }
             else
             {
@@ -1155,7 +1154,7 @@ void __cdecl SaveRegisteredItems()
     if (bits)
         string[n++] = digit + (digit >= 10 ? 87 : 48);
     string[n] = 0;
-    SV_SetConfigstring(2314, string);
+    SV_SetConfigstring(CS_ITEMS, string);
 }
 
 void __cdecl G_RegisterWeapon(uint32_t weapIndex)

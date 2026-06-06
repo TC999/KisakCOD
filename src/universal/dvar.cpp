@@ -11,6 +11,7 @@
 #include <win32/win_net.h>
 #include <devgui/devgui.h>
 #include "com_math.h"
+#include "memfile.h"        // Dvar_Save/LoadDvars
 
 #include <algorithm>
 
@@ -45,7 +46,7 @@ static int generateHashValue(const char* fname)
     int hash = 0;
     for (int i = 0; fname[i]; ++i)
         hash += tolower(fname[i]) * (i + 119);
-    return (unsigned __int8)hash;
+    return (uint8_t)hash;
 }
 
 int __cdecl Dvar_Command()
@@ -172,7 +173,7 @@ char *__cdecl Dvar_InfoString(int localClientNum, char bit)
     return info1;
 }
 
-void __cdecl Dvar_InfoStringSingle(const dvar_s *dvar, unsigned int *userData)
+void __cdecl Dvar_InfoStringSingle(const dvar_s *dvar, uint32_t *userData)
 {
     const char *v2; // eax
 
@@ -190,7 +191,7 @@ char *__cdecl Dvar_InfoString_Big(int bit)
     return info2;
 }
 
-void __cdecl Dvar_InfoStringSingle_Big(const dvar_s *dvar, unsigned int *userData)
+void __cdecl Dvar_InfoStringSingle_Big(const dvar_s *dvar, uint32_t *userData)
 {
     const char *v2; // eax
 
@@ -263,7 +264,7 @@ void __cdecl Dvar_ForEachName(void(__cdecl *callback)(const char *))
     InterlockedDecrement(&g_dvarCritSect.readCount);
 }
 
-const dvar_s *__cdecl Dvar_GetAtIndex(unsigned int index)
+const dvar_s *__cdecl Dvar_GetAtIndex(uint32_t index)
 {
     if (index >= dvarCount)
         MyAssertHandler(
@@ -474,7 +475,7 @@ const char *__cdecl Dvar_DisplayableLatchedValue(const dvar_s *dvar)
     return Dvar_ValueToString(dvar, dvar->latched);
 }
 
-char __cdecl Dvar_ValueInDomain(unsigned __int8 type, DvarValue value, DvarLimits domain)
+char __cdecl Dvar_ValueInDomain(uint8_t type, DvarValue value, DvarLimits domain)
 {
     char result; // al
     const char *v4; // eax
@@ -541,10 +542,10 @@ char __cdecl Dvar_VectorInDomain(const float *vector, int components, float min,
 }
 
 const char *__cdecl Dvar_DomainToString_Internal(
-    unsigned __int8 type,
+    uint8_t type,
     DvarLimits domain,
     char *outBuffer,
-    unsigned int outBufferLen,
+    uint32_t outBufferLen,
     int *outLineCount)
 {
     const char *v4; // eax
@@ -664,15 +665,15 @@ const char *__cdecl Dvar_DomainToString_Internal(
 }
 
 const char *__cdecl Dvar_DomainToString(
-    unsigned __int8 type,
+    uint8_t type,
     DvarLimits *domain,
     char *outBuffer,
-    unsigned int outBufferLen)
+    uint32_t outBufferLen)
 {
     return Dvar_DomainToString_Internal(type, *domain, outBuffer, outBufferLen, 0);
 }
 
-void __cdecl Dvar_VectorDomainToString(int components, DvarLimits domain, char *outBuffer, unsigned int outBufferLen)
+void __cdecl Dvar_VectorDomainToString(int components, DvarLimits domain, char *outBuffer, uint32_t outBufferLen)
 {
     if (domain.value.min == -FLT_MAX)
     {
@@ -708,10 +709,10 @@ void __cdecl Dvar_VectorDomainToString(int components, DvarLimits domain, char *
 }
 
 const char *Dvar_DomainToString_GetLines(
-    unsigned __int8 type,
+    uint8_t type,
     DvarLimits *domain,
     char *outBuffer,
-    unsigned int outBufferLen,
+    uint32_t outBufferLen,
     int *outLineCount)
 {
     if (!outLineCount)
@@ -719,7 +720,7 @@ const char *Dvar_DomainToString_GetLines(
     return Dvar_DomainToString_Internal(type, *domain, outBuffer, outBufferLen, outLineCount);
 }
 
-void __cdecl Dvar_PrintDomain(unsigned __int8 type, DvarLimits domain)
+void __cdecl Dvar_PrintDomain(uint8_t type, DvarLimits domain)
 {
     //const char *v2; // eax
     //__int64 v3; // [esp-8h] [ebp-410h]
@@ -738,7 +739,7 @@ bool __cdecl Dvar_HasLatchedValue(const dvar_s *dvar)
     return Dvar_ValuesEqual(dvar->type, dvar->current, dvar->latched) == 0;
 }
 
-int __cdecl Dvar_ValuesEqual(unsigned __int8 type, DvarValue val0, DvarValue val1)
+int __cdecl Dvar_ValuesEqual(uint8_t type, DvarValue val0, DvarValue val1)
 {
     int result; // eax
     const char *v4; // eax
@@ -889,7 +890,7 @@ void __cdecl Dvar_UpdateEnumDomain(dvar_s *dvar, const char **stringTable)
 
 DvarValue *__cdecl Dvar_ClampValueToDomain(
     DvarValue *result,
-    unsigned __int8 type,
+    uint8_t type,
     DvarValue value,
     DvarValue resetValue,
     DvarLimits domain)
@@ -1102,7 +1103,7 @@ const char *__cdecl Dvar_GetVariantString(const char *dvarName)
 
 void __cdecl Dvar_GetUnpackedColor(const dvar_s *dvar, float *expandedColor)
 {
-    unsigned __int8 color[4]; // [esp+10h] [ebp-4h] BYREF
+    uint8_t color[4]; // [esp+10h] [ebp-4h] BYREF
 
     if (!dvar)
         MyAssertHandler(".\\universal\\dvar.cpp", 1230, 0, "%s", "dvar");
@@ -1115,7 +1116,7 @@ void __cdecl Dvar_GetUnpackedColor(const dvar_s *dvar, float *expandedColor)
             "(dvar->type == DVAR_TYPE_COLOR || (dvar->type == DVAR_TYPE_STRING && (dvar->flags & (1 << 14))))",
             dvar->type);
     if (dvar->type == 8)
-        *(unsigned int *)color = dvar->current.integer;
+        *(uint32_t *)color = dvar->current.integer;
     else
         Dvar_StringToColor(dvar->current.string, color);
     *expandedColor = (double)color[0] * 0.003921568859368563;
@@ -1124,7 +1125,7 @@ void __cdecl Dvar_GetUnpackedColor(const dvar_s *dvar, float *expandedColor)
     expandedColor[3] = (double)color[3] * 0.003921568859368563;
 }
 
-void __cdecl Dvar_StringToColor(const char *string, unsigned __int8 *color)
+void __cdecl Dvar_StringToColor(const char *string, uint8_t *color)
 {
     float colorVec[4]; // [esp+90h] [ebp-10h] BYREF
 
@@ -1187,7 +1188,7 @@ void __cdecl Dvar_Shutdown()
     dvar_cheats = 0;
     dvar_modifiedFlags = 0;
     isDvarSystemActive = 0;
-    memset((unsigned __int8 *)dvarHashTable, 0, sizeof(dvarHashTable));
+    memset((uint8_t *)dvarHashTable, 0, sizeof(dvarHashTable));
     Sys_UnlockWrite(&g_dvarCritSect);
 }
 
@@ -1357,7 +1358,7 @@ void __cdecl Dvar_SetVariant(dvar_s *dvar, DvarValue value, DvarSetSource source
         return;
     }
     if (dvar->domainFunc
-        && !((unsigned __int8(__cdecl *)(dvar_s *, int, unsigned int, unsigned int, unsigned int))dvar->domainFunc)(
+        && !((uint8_t(__cdecl *)(dvar_s *, int, uint32_t, uint32_t, uint32_t))dvar->domainFunc)(
             dvar,
             value.integer,
             LODWORD(value.vector[1]),
@@ -1545,7 +1546,7 @@ void __cdecl Dvar_ClearLatchedValue(dvar_s *dvar)
 const dvar_s *__cdecl Dvar_RegisterBool(
     const char *dvarName,
     bool value,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue dvarValue = {};
@@ -1556,8 +1557,8 @@ const dvar_s *__cdecl Dvar_RegisterBool(
 
 const dvar_s *__cdecl Dvar_RegisterNew(
     const char *dvarName,
-    unsigned __int8 type,
-    unsigned __int16 flags,
+    uint8_t type,
+    uint16_t flags,
     DvarValue value,
     DvarLimits domain,
     const char *description)
@@ -1672,8 +1673,8 @@ void __cdecl Dvar_PerformUnregistration(dvar_s *dvar)
 void __cdecl Dvar_ReinterpretDvar(
     dvar_s *dvar,
     const char *dvarName,
-    unsigned __int8 type,
-    unsigned __int16 flags,
+    uint8_t type,
+    uint16_t flags,
     DvarValue value,
     DvarLimits domain)
 {
@@ -1696,8 +1697,8 @@ void __cdecl Dvar_ReinterpretDvar(
 void __cdecl Dvar_Reregister(
     dvar_s *dvar,
     const char *dvarName,
-    unsigned __int8 type,
-    unsigned __int16 flags,
+    uint8_t type,
+    uint16_t flags,
     DvarValue resetValue,
     DvarLimits domain,
     const char *description)
@@ -1763,8 +1764,8 @@ void __cdecl Dvar_Reregister(
 
 const dvar_s *__cdecl Dvar_RegisterVariant(
     const char *dvarName,
-    unsigned __int8 type,
-    unsigned __int16 flags,
+    uint8_t type,
+    uint16_t flags,
     DvarValue value,
     DvarLimits domain,
     const char *description)
@@ -1789,8 +1790,8 @@ const dvar_s *__cdecl Dvar_RegisterVariant(
 void __cdecl Dvar_MakeExplicitType(
     dvar_s *dvar,
     const char *dvarName,
-    unsigned __int8 type,
-    unsigned __int16 flags,
+    uint8_t type,
+    uint16_t flags,
     DvarValue resetValue,
     DvarLimits domain)
 {
@@ -1843,7 +1844,7 @@ void __cdecl Dvar_MakeExplicitType(
         FreeString(castValue.string);
 }
 
-DvarValue *__cdecl Dvar_StringToValue(DvarValue *result, unsigned __int8 type, DvarLimits domain, const char *string)
+DvarValue *__cdecl Dvar_StringToValue(DvarValue *result, uint8_t type, DvarLimits domain, const char *string)
 {
     const char *v4; // eax
     DvarValue value; // [esp+4h] [ebp-14h] BYREF
@@ -1877,7 +1878,7 @@ DvarValue *__cdecl Dvar_StringToValue(DvarValue *result, unsigned __int8 type, D
         value.integer = (int)string;
         break;
     case 8u:
-        Dvar_StringToColor(string, (unsigned __int8 *)&value);
+        Dvar_StringToColor(string, (uint8_t *)&value);
         break;
     default:
         if (!alwaysfails)
@@ -2020,7 +2021,7 @@ const dvar_s *__cdecl Dvar_RegisterInt(
     const char *dvarName,
     int value,
     DvarLimits min,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue v6 = {};
@@ -2031,9 +2032,9 @@ const dvar_s *__cdecl Dvar_RegisterInt(
 const dvar_t *__cdecl Dvar_RegisterInt(
     const char *dvarName,
     int value,
-    unsigned int min,
-    unsigned int max,
-    unsigned int flags,
+    uint32_t min,
+    uint32_t max,
+    uint32_t flags,
     const char *description)
 {
     DvarValue dvarValue = {};
@@ -2050,7 +2051,7 @@ const dvar_s *__cdecl Dvar_RegisterFloat(
     const char *dvarName,
     float value,
     DvarLimits min,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue v6 = {};
@@ -2063,7 +2064,7 @@ const dvar_s *__cdecl Dvar_RegisterFloat(
     float value,
     float min,
     float max,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue dvarValue = {};
@@ -2081,7 +2082,7 @@ const dvar_s *__cdecl Dvar_RegisterVec2(
     float x,
     float y,
     DvarLimits min,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue v7 = {};
@@ -2096,7 +2097,7 @@ const dvar_s *__cdecl Dvar_RegisterVec3(
     float y,
     float z,
     DvarLimits min,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue v8 = {};
@@ -2113,7 +2114,7 @@ const dvar_s *__cdecl Dvar_RegisterVec3(
     float z,
     float min,
     float max,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarLimits limits;
@@ -2131,7 +2132,7 @@ const dvar_s *__cdecl Dvar_RegisterVec4(
     float z,
     float w,
     DvarLimits min,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue val = {};
@@ -2151,7 +2152,7 @@ const dvar_s *__cdecl Dvar_RegisterVec4(
     float w,
     float minimum,
     float maximum,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarLimits limits;
@@ -2164,7 +2165,7 @@ const dvar_s *__cdecl Dvar_RegisterVec4(
 const dvar_s *__cdecl Dvar_RegisterString(
     const char *dvarName,
     const char *value,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarValue v5 = {};
@@ -2189,7 +2190,7 @@ const dvar_s *__cdecl Dvar_RegisterEnum(
     const char *dvarName,
     const char **valueList,
     int defaultIndex,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     DvarLimits dvarDomain = {};
@@ -2227,7 +2228,7 @@ const dvar_s *__cdecl Dvar_RegisterColor(
     float g,
     float b,
     float a,
-    unsigned __int16 flags,
+    uint16_t flags,
     const char *description)
 {
     float v8; // [esp+0h] [ebp-ACh]
@@ -2739,7 +2740,7 @@ void __cdecl Dvar_SetDomainFunc(dvar_s *dvar, bool(__cdecl *customFunc)(dvar_s *
     dvar->domainFunc = customFunc;
     if (customFunc)
     {
-        if (!((unsigned __int8(__cdecl *)(dvar_s *, int, unsigned int, unsigned int, unsigned int))dvar->domainFunc)(
+        if (!((uint8_t(__cdecl *)(dvar_s *, int, uint32_t, uint32_t, uint32_t))dvar->domainFunc)(
             dvar,
             dvar->current.integer,
             LODWORD(dvar->current.vector[1]),
@@ -2859,7 +2860,7 @@ char __cdecl Dvar_AnyLatchedValues()
     return 0;
 }
 
-void __cdecl Dvar_ResetDvars(unsigned __int16 filter, DvarSetSource setSource)
+void __cdecl Dvar_ResetDvars(uint16_t filter, DvarSetSource setSource)
 {
     int dvarIter; // [esp+4h] [ebp-8h]
 
@@ -2881,11 +2882,11 @@ void __cdecl Dvar_ResetDvars(unsigned __int16 filter, DvarSetSource setSource)
     InterlockedDecrement(&g_dvarCritSect.readCount);
 }
 
-int __cdecl Com_SaveDvarsToBuffer(const char **dvarnames, unsigned int numDvars, char *buffer, unsigned int bufsize)
+int __cdecl Com_SaveDvarsToBuffer(const char **dvarnames, uint32_t numDvars, char *buffer, uint32_t bufsize)
 {
     const char *string; // [esp+0h] [ebp-10h]
     int written; // [esp+4h] [ebp-Ch]
-    unsigned int i; // [esp+8h] [ebp-8h]
+    uint32_t i; // [esp+8h] [ebp-8h]
     const dvar_s *dvar; // [esp+Ch] [ebp-4h]
 
     for (i = 0; i < numDvars; ++i)
@@ -2903,11 +2904,11 @@ int __cdecl Com_SaveDvarsToBuffer(const char **dvarnames, unsigned int numDvars,
     return 1;
 }
 
-int __cdecl Com_LoadDvarsFromBuffer(const char **dvarnames, unsigned int numDvars, char *buffer, char *filename)
+int __cdecl Com_LoadDvarsFromBuffer(const char **dvarnames, uint32_t numDvars, char *buffer, char *filename)
 {
     const char *v4; // eax
-    unsigned __int8 dst[16388]; // [esp+0h] [ebp-4018h] BYREF
-    unsigned int i; // [esp+4008h] [ebp-10h]
+    uint8_t dst[16388]; // [esp+0h] [ebp-4018h] BYREF
+    uint32_t i; // [esp+4008h] [ebp-10h]
     char *s0; // [esp+400Ch] [ebp-Ch]
     dvar_s *dvar; // [esp+4010h] [ebp-8h]
     int v10; // [esp+4014h] [ebp-4h]
@@ -2969,132 +2970,99 @@ int __cdecl Com_LoadDvarsFromBuffer(const char **dvarnames, unsigned int numDvar
 
 
 #ifdef KISAK_SP
-void Dvar_SaveDvars(MemoryFile *memFile, unsigned __int16 filter)
+void Dvar_SaveDvars(MemoryFile *memFile, uint16_t filter)
 {
-#if 0 // KISAKSAVE
-    char v7; // cr34
-    int v8; // r19
-    const char ***v9; // r20
-    const char **i; // r29
-    const char *v11; // r11
-    int v13; // r31
-    const char *v14; // r30
-    const char *v15; // r11
-    int v17; // r31
-    _DWORD v18[36]; // [sp+50h] [-90h] BYREF
+    InterlockedIncrement(&g_dvarCritSect.readCount);
+    while (g_dvarCritSect.writeCount)
+        NET_Sleep(0);
 
-    _R11 = &dword_83B19CF8;
-    do
+    int writeBuf;
+    for (int bucket = 0; bucket < 256; ++bucket)
     {
-        __asm
+        for (dvar_s *var = dvarHashTable[bucket]; var; var = var->hashNext)
         {
-            mfmsr     r9
-            mtmsree   r13
-            lwarx     r10, (dword_83B19CF8 - 0x83B19CF8), r11
-        }
-        ++_R10;
-        __asm
-        {
-            stwcx.r10, (dword_83B19CF8 - 0x83B19CF8), r11
-            mtmsree   r9
-        }
-    } while (!v7);
-    while (dword_83B19CFC)
-        ;
-    __lwsync();
-    v8 = 256;
-    v9 = (const char ***)dvarHashTable;
-    do
-    {
-        for (i = *v9; i; i = (const char **)i[17])
-        {
-            if (((_WORD)i[2] & filter) != 0)
+            if ((var->flags & filter) == 0)
+                continue;
+
+            iassert(var->name);
+
+            const char *namePtr = var->name;
+            while (*(unsigned char *)namePtr++)
+                ;
+            int nameLen = (int)(namePtr - var->name - 1);
+            if (nameLen >= 1024)
             {
-                if (!*i)
-                    MyAssertHandler("c:\\trees\\cod3\\cod3src\\src\\universal\\dvar.cpp", 2286, 0, "%s", "var->name");
-                v11 = *i;
-                while (*(unsigned __int8 *)v11++)
-                    ;
-                v13 = v11 - *i - 1;
-                if (v13 >= 1024)
-                {
-                    Com_PrintError(16, "ERROR: Truncating dvar name '%s' in save game\n", *i);
-                    v13 = 1023;
-                }
-                v18[0] = v13;
-                MemFile_WriteData(memFile, 4, v18);
-                MemFile_WriteData(memFile, v13, *i);
-                v14 = Dvar_ValueToString((const dvar_s *)i[3], (DvarValue *)i[5]);
-                if (!v14)
-                    MyAssertHandler(
-                        "c:\\trees\\cod3\\cod3src\\src\\universal\\dvar.cpp",
-                        2297,
-                        0,
-                        "%s\n\t(var->name) = %s",
-                        "(stringValue)",
-                        *i);
-                v15 = v14;
-                while (*(unsigned __int8 *)v15++)
-                    ;
-                v17 = v15 - v14 - 1;
-                if (v17 >= 1024)
-                {
-                    Com_PrintError(16, "ERROR: Truncating dvar value '%s' for dvar '%s' in save game\n", v14, *i);
-                    v17 = 1023;
-                }
-                v18[0] = v17;
-                MemFile_WriteData(memFile, 4, v18);
-                MemFile_WriteData(memFile, v17, v14);
+                Com_PrintError(16, "ERROR: Truncating dvar name '%s' in save game\n", var->name);
+                nameLen = 1023;
             }
+            writeBuf = nameLen;
+            MemFile_WriteData(memFile, 4, &writeBuf);
+            MemFile_WriteData(memFile, nameLen, var->name);
+
+            const char *stringValue = Dvar_ValueToString(var, var->current);
+            iassert(stringValue);
+            const char *valuePtr = stringValue;
+            while (*(unsigned char *)valuePtr++)
+                ;
+            int valueLen = (int)(valuePtr - stringValue - 1);
+            if (valueLen >= 1024)
+            {
+                Com_PrintError(16, "ERROR: Truncating dvar value '%s' for dvar '%s' in save game\n", stringValue, var->name);
+                valueLen = 1023;
+            }
+            writeBuf = valueLen;
+            MemFile_WriteData(memFile, 4, &writeBuf);
+            MemFile_WriteData(memFile, valueLen, stringValue);
         }
-        --v8;
-        ++v9;
-    } while (v8);
-    v18[0] = -1;
-    MemFile_WriteData(memFile, 4, v18);
-    Sys_UnlockRead((FastCriticalSection *)&dword_83B19CF8);
-#endif 
+    }
+    writeBuf = -1;
+    MemFile_WriteData(memFile, 4, &writeBuf);
+
+    if (g_dvarCritSect.readCount <= 0)
+        MyAssertHandler(
+            "c:\\trees\\cod3\\src\\universal\\../qcommon/threads_interlock.h",
+            76,
+            0,
+            "%s",
+            "critSect->readCount > 0");
+    InterlockedDecrement(&g_dvarCritSect.readCount);
 }
 
 void Dvar_LoadDvars(MemoryFile *memFile)
 {
-#if 0 // KISAKSAVE
-    int i; // r31
-    int v3; // r31
-    dvar_s *MalleableVar; // r3
-    DvarValue *v5; // r3
-    int v6; // [sp+50h] [-850h] BYREF
-    int v7[3]; // [sp+54h] [-84Ch] BYREF
-    DvarValue v8; // [sp+60h] [-840h] BYREF
-    char v9[1024]; // [sp+70h] [-830h] BYREF
-    char v10[1072]; // [sp+470h] [-430h] BYREF
+    int nameLen;
+    int valueLenBuf[3];
+    DvarValue parsedValue;
+    char valueBuf[1024];
+    char nameBuf[1072];
 
-    MemFile_ReadData(memFile, 4, &v6);
-    for (i = v6; v6 >= 0; i = v6)
+    MemFile_ReadData(memFile, 4, (unsigned char *)&nameLen);
+    while (nameLen >= 0)
     {
-        if (i >= 1024)
+        if (nameLen >= 1024)
             Com_Error(ERR_DROP, "SAVE_STRING_MAX_SIZE exceeded in save game");
-        MemFile_ReadData(memFile, i, v10);
-        v10[i] = 0;
-        MemFile_ReadData(memFile, 4, v7);
-        v3 = v7[0];
-        if (v7[0] >= 1024)
+        MemFile_ReadData(memFile, nameLen, (unsigned char *)nameBuf);
+        nameBuf[nameLen] = 0;
+
+        MemFile_ReadData(memFile, 4, (unsigned char *)valueLenBuf);
+        int valueLen = valueLenBuf[0];
+        if (valueLen >= 1024)
             Com_Error(ERR_DROP, "SAVE_STRING_MAX_SIZE exceeded in save game");
-        MemFile_ReadData(memFile, v3, v9);
-        v9[v3] = 0;
-        MalleableVar = Dvar_FindMalleableVar(v10);
-        if (MalleableVar)
+        MemFile_ReadData(memFile, valueLen, (unsigned char *)valueBuf);
+        valueBuf[valueLen] = 0;
+
+        dvar_s *malleableVar = Dvar_FindMalleableVar(nameBuf);
+        if (malleableVar)
         {
-            v5 = Dvar_StringToValue(&v8, MalleableVar->type, (const DvarLimits *)MalleableVar->domain.enumeration.strings, v9);
-            Dvar_SetVariant((dvar_s *)v5->integer, (DvarValue *)LODWORD(v5->vector[2]), SLODWORD(v5->vector[3]));
+            Dvar_StringToValue(&parsedValue, malleableVar->type, malleableVar->domain, valueBuf);
+            Dvar_SetVariant(malleableVar, parsedValue, DVAR_SOURCE_EXTERNAL);
         }
         else
         {
-            Dvar_RegisterString(v10, v9, 0x4000u, "External Dvar");
+            Dvar_RegisterString(nameBuf, valueBuf, 0x4000u, "External Dvar");
         }
-        MemFile_ReadData(memFile, 4, &v6);
+        MemFile_ReadData(memFile, 4, (unsigned char *)&nameLen);
     }
-#endif
 }
 
 #endif // KISAK_SP

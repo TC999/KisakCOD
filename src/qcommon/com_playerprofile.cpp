@@ -177,7 +177,7 @@ char __cdecl Com_DeletePlayerProfile(const char *profileName)
 void __cdecl Com_InitPlayerProfiles(int localClientNum)
 {
     DvarValue v1; // [esp-10h] [ebp-24h]
-    unsigned int value_4; // [esp+4h] [ebp-10h]
+    uint32_t value_4; // [esp+4h] [ebp-10h]
     __int64 value_8; // [esp+8h] [ebp-Ch]
 
     ui_playerProfileAlreadyChosen = Dvar_RegisterInt(
@@ -651,7 +651,9 @@ void __cdecl Com_ChangePlayerProfile(int localClientNum, char *profileName)
             Cmd_ExecuteSingleCommand(localClientNum, 0, (char*)"disconnect");
             Dvar_ResetDvars(0xFFFFu, DVAR_SOURCE_EXTERNAL);
             Com_SetPlayerProfile(localClientNum, cachedName);
+#ifdef KISAK_MP 
             LiveStorage_ReadStats();
+#endif
             Com_CheckSetRecommended(localClientNum);
             if (Dvar_AnyLatchedValues())
                 Cbuf_AddText(localClientNum, "snd_restart\n");

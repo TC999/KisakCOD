@@ -1175,7 +1175,7 @@ bool __cdecl BG_PlayerHasRoomForEntAllAmmoTypes(const entityState_s *ent, const 
 {
     const char *v2; // eax
     int v3; // ecx
-    unsigned int weapIdx; // [esp+0h] [ebp-8h]
+    uint32_t weapIdx; // [esp+0h] [ebp-8h]
     const WeaponDef *weapDef; // [esp+4h] [ebp-4h]
 
     iassert(ent);
@@ -1369,7 +1369,7 @@ void __cdecl BG_EvaluateTrajectoryDelta(const trajectory_t *tr, int32_t atTime, 
     }
 }
 
-void __cdecl BG_AddPredictableEventToPlayerstate(uint32_t newEvent, uint32_t eventParm, playerState_s *ps)
+void __cdecl BG_AddPredictableEventToPlayerstate(entity_event_t newEvent, uint32_t eventParm, playerState_s *ps)
 {
     if (newEvent)
     {

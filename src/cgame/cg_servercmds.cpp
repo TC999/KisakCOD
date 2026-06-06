@@ -55,7 +55,7 @@ void __cdecl CG_ParseCullDist(int localClientNum)
     const char *ConfigString; // r3
     long double v2; // fp2
 
-    ConfigString = CL_GetConfigString(localClientNum, 6u);
+    ConfigString = CL_GetConfigString(localClientNum, CS_CULLDIST);
     v2 = atof(ConfigString);
     R_SetCullDist((float)*(double *)&v2);
 }
@@ -66,7 +66,7 @@ void __cdecl CG_ParseSunLight(int localClientNum)
     int argCount; // r8
     float sunColor[3]; // [sp+50h] [-20h] BYREF
 
-    ConfigString = CL_GetConfigString(localClientNum, 7);
+    ConfigString = CL_GetConfigString(localClientNum, CS_SUNLIGHT);
     if (*ConfigString)
     {
         argCount = sscanf(ConfigString, "%g %g %g", &sunColor[0], &sunColor[1], &sunColor[2]);
@@ -89,7 +89,7 @@ void __cdecl CG_ParseSunDirection(int localClientNum)
     int lerpBeginTime;
     int lerpEndTime;
 
-    ConfigString = CL_GetConfigString(localClientNum, 8);
+    ConfigString = CL_GetConfigString(localClientNum, CS_SUNDIR);
     if (*ConfigString)
     {
         argCount = sscanf(
@@ -121,89 +121,23 @@ void __cdecl CG_ParseSunDirection(int localClientNum)
 
 void __cdecl CG_ParseFog(int time)
 {
-    int nesting; // r7
-    const char *v3; // r3
-    long double v4; // fp2
-    int v5; // r7
-    double v6; // fp28
-    const char *v7; // r3
-    long double v8; // fp2
-    double v9; // fp29
-    const char *v10; // r3
-    long double v11; // fp2
-    long double v12; // fp2
-    unsigned __int8 v13; // r31
-    const char *v14; // r3
-    long double v15; // fp2
-    long double v16; // fp2
-    unsigned __int8 v17; // r30
-    const char *v18; // r3
-    long double v19; // fp2
-    const char *v20; // r3
-    int v21; // r3
-    unsigned __int8 v22; // r4
-    int v23; // r31
-    int v24; // r5
-    int v25; // r3
+    float start = (float)atof(Cmd_Argv(1));
 
-    v3 = Cmd_Argv(1);
+    const char *halfwayStr = Cmd_Argv(2);
+    if (Cmd_Argc() <= 2 || !halfwayStr || !*halfwayStr)
+    {
+        R_SwitchFog(0, time, (int)start);
+        return;
+    }
 
-    v4 = atof(v3);
-    v5 = cmd_args.nesting;
-    v6 = (float)*(double *)&v4;
-    if (cmd_args.nesting >= 8u)
-    {
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\cgame\\../qcommon/cmd.h",
-            174,
-            0,
-            "cmd_args.nesting doesn't index CMD_MAX_NESTING\n\t%i not in [0, %i)",
-            cmd_args.nesting,
-            8);
-        v5 = cmd_args.nesting;
-    }
-    if (cmd_args.argc[v5] <= 2)
-    {
-        v7 = "";
-    }
-    else
-    {
-        v7 = (char *)*((unsigned int *)cmd_args.argv[v5] + 2);
-        if (!v7)
-        {
-        LABEL_13:
-            v25 = 0;
-            v24 = (int)v6;
-            goto LABEL_14;
-        }
-    }
-    if (!*v7)
-        goto LABEL_13;
-    v8 = atof(v7);
-    v9 = (float)*(double *)&v8;
-    v10 = Cmd_Argv(3);
-    v11 = atof(v10);
-    *(double *)&v11 = (float)((float)((float)*(double *)&v11 * (float)255.0) + (float)0.5);
-    v12 = floor(v11);
-    v13 = (int)(float)*(double *)&v12;
-    v14 = Cmd_Argv(4);
-    v15 = atof(v14);
-    *(double *)&v15 = (float)((float)((float)*(double *)&v15 * (float)255.0) + (float)0.5);
-    v16 = floor(v15);
-    v17 = (int)(float)*(double *)&v16;
-    v18 = Cmd_Argv(5);
-    v19 = atof(v18);
-    *(double *)&v19 = (float)((float)((float)*(double *)&v19 * (float)255.0) + (float)0.5);
-    floor(v19);
-    v20 = Cmd_Argv(6);
-    v21 = atol(v20);
-    v22 = v13;
-    v23 = v21;
-    R_SetFogFromServer(v6, v21, v22, v17, v9);
-    v24 = v23;
-    v25 = 1;
-LABEL_14:
-    R_SwitchFog(v25, time, v24);
+    float halfway = (float)atof(halfwayStr);
+    uint8_t red   = (uint8_t)(int)floorf((float)atof(Cmd_Argv(3)) * 255.0f + 0.5f);
+    uint8_t green = (uint8_t)(int)floorf((float)atof(Cmd_Argv(4)) * 255.0f + 0.5f);
+    uint8_t blue  = (uint8_t)(int)floorf((float)atof(Cmd_Argv(5)) * 255.0f + 0.5f);
+    int transitionTime = atoi(Cmd_Argv(6));
+
+    R_SetFogFromServer(start, red, green, blue, halfway);
+    R_SwitchFog(1, time, transitionTime);
 }
 
 void __cdecl CG_PrecacheScriptMenu(int localClientNum, int iConfigNum)
@@ -211,7 +145,7 @@ void __cdecl CG_PrecacheScriptMenu(int localClientNum, int iConfigNum)
     const char *ConfigString; // r3
     const char *v5; // r31
 
-    if (iConfigNum < 2551 || iConfigNum >= 2583)
+    if (iConfigNum < CS_SCRIPT_MENUS || iConfigNum >= CS_SERVER_MATERIALS)
         MyAssertHandler(
             "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_servercmds.cpp",
             165,
@@ -231,7 +165,7 @@ void __cdecl CG_RegisterServerMaterial(int localClientNum, int num)
 {
     const char *ConfigString; // r3
 
-    if (num < 2583 || num >= 2711)
+    if (num < CS_SERVER_MATERIALS || num >= CS_ITEMS)
         MyAssertHandler(
             "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_servercmds.cpp",
             180,
@@ -249,9 +183,9 @@ void __cdecl CG_RegisterServerMaterials(int localClientNum)
     signed int i; // r31
     const char *ConfigString; // r3
 
-    for (i = 2584; i < 2711; ++i)
+    for (i = CS_SERVER_MATERIALS + 1; i < CS_ITEMS; ++i)
     {
-        if (i < 2583)
+        if (i < CS_SERVER_MATERIALS)
             MyAssertHandler(
                 "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_servercmds.cpp",
                 180,
@@ -285,11 +219,11 @@ void __cdecl CG_ConfigStringModifiedInternal(int localClientNum, unsigned int st
             localClientNum);
     ConfigString = CL_GetConfigString(localClientNum, stringIndex);
     v5 = ConfigString;
-    if (stringIndex == 2711)
+    if (stringIndex == CS_ITEMS)
     {
         CG_RegisterItems(localClientNum);
     }
-    else if (stringIndex == 1114)
+    else if (stringIndex == CS_AMBIENT)
     {
         CG_StartAmbient(localClientNum);
     }
@@ -298,7 +232,7 @@ void __cdecl CG_ConfigStringModifiedInternal(int localClientNum, unsigned int st
         switch (stringIndex)
         {
         case 6u:
-            v6 = CL_GetConfigString(localClientNum, 6u);
+            v6 = CL_GetConfigString(localClientNum, CS_CULLDIST);
             v7 = atof(v6);
             R_SetCullDist((float)*(double *)&v7);
             break;
@@ -309,31 +243,31 @@ void __cdecl CG_ConfigStringModifiedInternal(int localClientNum, unsigned int st
             CG_ParseSunDirection(localClientNum);
             break;
         default:
-            if (stringIndex - 1155 > 0x1FF)
+            if (stringIndex - CS_MODELS > 0x1FF)
             {
-                if (stringIndex - 2179 > 0x63)
+                if (stringIndex - CS_EFFECT_NAMES > 0x63)
                 {
-                    if (stringIndex - 2535 > 0xF)
+                    if (stringIndex - CS_SHELLSHOCKS > 0xF)
                     {
-                        if (stringIndex - 11 > 0xF)
+                        if (stringIndex - CS_OBJECTIVES > 0xF)
                         {
-                            if (stringIndex - 2583 > 0x7F)
+                            if (stringIndex - CS_SERVER_MATERIALS > 0x7F)
                             {
-                                if (stringIndex == 1147)
+                                if (stringIndex == CS_NORTHYAW)
                                 {
                                     CG_NorthDirectionChanged(localClientNum);
                                 }
-                                else if (stringIndex == 1148)
+                                else if (stringIndex == CS_MINIMAP)
                                 {
                                     CG_MiniMapChanged(localClientNum);
                                 }
-                                else if (stringIndex - 27 > 0x1F)
+                                else if (stringIndex - CS_TARGETS > 0x1F)
                                 {
-                                    if (stringIndex == 1149)
+                                    if (stringIndex == CS_VISIONSET_NAKED)
                                     {
                                         CG_VisionSetConfigString_Naked(localClientNum);
                                     }
-                                    else if (stringIndex == 1150)
+                                    else if (stringIndex == CS_VISIONSET_NIGHT)
                                     {
                                         CG_VisionSetConfigString_Night(localClientNum);
                                     }
@@ -356,7 +290,7 @@ void __cdecl CG_ConfigStringModifiedInternal(int localClientNum, unsigned int st
                     else if (*ConfigString && BG_LoadShellShockDvars(ConfigString))
                     {
                         CG_GetLocalClientStaticGlobals(localClientNum);
-                        ShellshockParms = BG_GetShellshockParms(stringIndex - 2535);
+                        ShellshockParms = BG_GetShellshockParms(stringIndex - CS_SHELLSHOCKS);
                         BG_SetShellShockParmsFromDvars(ShellshockParms);
                     }
                 }
@@ -411,7 +345,7 @@ void __cdecl CG_OpenScriptMenu(int localClientNum)
         Com_Printf(14, "Server tried to open a bad script menu index: %i\n", v4);
         goto LABEL_23;
     }
-    ConfigString = CL_GetConfigString(localClientNum, v4 + 2551);
+    ConfigString = CL_GetConfigString(localClientNum, v4 + CS_SCRIPT_MENUS); // PC SP 2519 (was Xbox 2551)
     if (!*ConfigString)
     {
         Com_Printf(14, "Server tried to open a non-loaded script menu index: %i\n", v5);
@@ -610,59 +544,20 @@ void __cdecl CG_HudMenuShowAllTimed(int localClientNum)
 
 void CG_EqCommand()
 {
-    int nesting; // r7
-    int v1; // r5
-    const char *v2; // r31
-    const char *v3; // r3
-    int v4; // r30
-    const char *v5; // r3
-    int v6; // r29
-    const char *v7; // r3
-    SND_EQTYPE v8; // r28
-    const char *v9; // r3
-    long double v10; // fp2
-    double v11; // fp31
-    const char *v12; // r3
-    long double v13; // fp2
-    double v14; // fp30
-    const char *v15; // r3
-    long double v16; // fp2
-
-    nesting = cmd_args.nesting;
-    if (cmd_args.nesting >= 8u)
+    if (Cmd_Argc() == 8)
     {
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\cgame\\../qcommon/cmd.h",
-            160,
-            0,
-            "cmd_args.nesting doesn't index CMD_MAX_NESTING\n\t%i not in [0, %i)",
-            cmd_args.nesting,
-            8);
-        nesting = cmd_args.nesting;
-    }
-    v1 = cmd_args.argc[nesting];
-    if (v1 == 8)
-    {
-        v2 = Cmd_Argv(1);
-        v3 = Cmd_Argv(2);
-        v4 = atol(v3);
-        v5 = Cmd_Argv(3);
-        v6 = atol(v5);
-        v7 = Cmd_Argv(4);
-        v8 = (SND_EQTYPE)atol(v7);
-        v9 = Cmd_Argv(5);
-        v10 = atof(v9);
-        v11 = (float)*(double *)&v10;
-        v12 = Cmd_Argv(6);
-        v13 = atof(v12);
-        v14 = (float)*(double *)&v13;
-        v15 = Cmd_Argv(7);
-        v16 = atof(v15);
-        SND_SetEq(v2, v4, v6, v8, v11, v14, (float)*(double *)&v16);
+        //const char *channelName,
+        //int eqIndex,
+        //int band,
+        //SND_EQTYPE type,
+        //float gain,
+        //float freq,
+        //float q)
+        SND_SetEq(Cmd_Argv(1), atol(Cmd_Argv(2)), atol(Cmd_Argv(3)), (SND_EQTYPE)atol(Cmd_Argv(4)), atof(Cmd_Argv(5)), atof(Cmd_Argv(6)), atof(Cmd_Argv(7)));
     }
     else
     {
-        Com_PrintError(14, "ERROR: CG_EqCommand called with %i args (should be 8)\n", v1);
+        Com_PrintError(14, "ERROR: CG_EqCommand called with %i args (should be 8)\n", Cmd_Argc());
     }
 }
 
@@ -933,7 +828,7 @@ void __cdecl LocalSound(int localClientNum)
         }
         else
         {
-            ConfigString = CL_GetConfigString(localClientNum, v5 + 1667);
+            ConfigString = CL_GetConfigString(localClientNum, v5 + CS_SOUNDALIASES);
             v7 = CG_PlayClientSoundAliasByName(localClientNum, ConfigString);
             if (v3 > 2)
             {
@@ -978,7 +873,7 @@ void __cdecl LocalSoundStop(int localClientNum)
         }
         else
         {
-            ConfigString = CL_GetConfigString(localClientNum, v4 + 1667);
+            ConfigString = CL_GetConfigString(localClientNum, v4 + CS_SOUNDALIASES);
             CG_StopClientSoundAliasByName(localClientNum, ConfigString);
         }
     }
@@ -1171,79 +1066,27 @@ void CG_ParseAmp()
 
 void __cdecl CG_ParsePhysGravityDir(int localClientNum)
 {
-    unsigned int nesting; // r7
-    int v3; // r28
-    const char *v4; // r3
-    const char *v5; // r3
-    const char *v6; // r3
-    long double v7; // fp2
-    const char *v8; // r3
-    long double v9; // fp2
-    const char *v10; // r3
-    long double v11; // fp2
-    float v12; // [sp+50h] [-40h] BYREF
-    float v13; // [sp+54h] [-3Ch]
-    float v14; // [sp+58h] [-38h]
+    float down[3]; // BYREF
 
-    nesting = cmd_args.nesting;
-    if (cmd_args.nesting >= 8u)
+    if (Cmd_Argc() == 4)
     {
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\cgame\\../qcommon/cmd.h",
-            160,
-            0,
-            "cmd_args.nesting doesn't index CMD_MAX_NESTING\n\t%i not in [0, %i)",
-            cmd_args.nesting,
-            8);
-        nesting = cmd_args.nesting;
-    }
-    v3 = cmd_args.argc[nesting];
-    if (nesting >= 8)
-    {
-        MyAssertHandler(
-            "c:\\trees\\cod3\\cod3src\\src\\cgame\\../qcommon/cmd.h",
-            160,
-            0,
-            "cmd_args.nesting doesn't index CMD_MAX_NESTING\n\t%i not in [0, %i)",
-            nesting,
-            8);
-        nesting = cmd_args.nesting;
-    }
-    if (cmd_args.argc[nesting] == 4)
-    {
-        v4 = Cmd_Argv(0);
-        if (I_strcmp(v4, "phys_grav"))
+        iassert(!I_strcmp(Cmd_Argv(0), "phys_grav" ));
+
+        down[0] = (float)atof(Cmd_Argv(1));
+        down[1] = (float)atof(Cmd_Argv(2));
+        down[2] = (float)atof(Cmd_Argv(3));
+        if (down[0] == 0.0 && down[1] == 0.0 && down[2] == 0.0)
         {
-            v5 = Cmd_Argv(0);
-            MyAssertHandler(
-                "c:\\trees\\cod3\\cod3src\\src\\cgame\\cg_servercmds.cpp",
-                980,
-                0,
-                "%s\n\t(Cmd_Argv( 0 )) = %s",
-                "(!I_strcmp( Cmd_Argv( 0 ), \"phys_grav\" ))",
-                v5);
+            down[0] = 0.0;
+            down[1] = 0.0;
+            down[2] = -1.0;
         }
-        v6 = Cmd_Argv(1);
-        v7 = atof(v6);
-        v12 = *(double *)&v7;
-        v8 = Cmd_Argv(2);
-        v9 = atof(v8);
-        v13 = *(double *)&v9;
-        v10 = Cmd_Argv(3);
-        v11 = atof(v10);
-        v14 = *(double *)&v11;
-        if (v12 == 0.0 && v13 == 0.0 && (float)*(double *)&v11 == 0.0)
-        {
-            v12 = 0.0;
-            v13 = 0.0;
-            v14 = -1.0;
-        }
-        Phys_SetGravityDir(&v12);
+        Phys_SetGravityDir(down);
         DynEntCl_WakeUpAroundPlayer(localClientNum);
     }
     else
     {
-        Com_PrintError(14, "phys_grav called with %i arguments, should be 3\n", v3);
+        Com_PrintError(14, "phys_grav called with %i arguments, should be 3\n", Cmd_Argc());
     }
 }
 
@@ -1377,8 +1220,6 @@ void __cdecl CG_DispatchServerCommand(int localClientNum)
     const char *v131; // r10
     const char *v132; // r11
     int v133; // r8
-    const char *v134; // r3
-    long double v135; // fp2
     const char *v136; // r10
     const char *v137; // r11
     int v138; // r8
@@ -2124,9 +1965,7 @@ void __cdecl CG_DispatchServerCommand(int localClientNum)
                                                                                                             }
                                                                                                             else
                                                                                                             {
-                                                                                                                v134 = Cmd_Argv(1);
-                                                                                                                v135 = atof(v134);
-                                                                                                                SND_SetEqLerp((float)*(double *)&v135);
+                                                                                                                SND_SetEqLerp(atof(Cmd_Argv(1)));
                                                                                                             }
                                                                                                         }
                                                                                                         else
@@ -2192,8 +2031,8 @@ void __cdecl CG_DispatchServerCommand(int localClientNum)
                                                                     else
                                                                     {
                                                                         v88 = Cmd_Argv(2);
-                                                                        //v89 = (_cntlzw(atol(v88)) & 0x20) == 0;
-                                                                        v89 = (atol(v88) & 0x20) == 0;
+
+                                                                        v89 = atol(v88) != 0;
                                                                         v90 = Cmd_Argv(1);
                                                                         v91 = CL_PickSoundAlias(v90);
                                                                         SND_PlayMusicAlias(localClientNum, v91, v89, SASYS_CGAME);
@@ -2387,7 +2226,7 @@ void __cdecl CG_MapInit(int restart)
         CG_ParseObjectiveChange(0, i);
     for (j = 27; j < 59; ++j)
         CG_TargetsChanged(0, j);
-    ConfigString = CL_GetConfigString(0, 6u);
+    ConfigString = CL_GetConfigString(0, CS_CULLDIST);
     v5 = atof(ConfigString);
     R_SetCullDist((float)*(double *)&v5);
     CG_NorthDirectionChanged(0);

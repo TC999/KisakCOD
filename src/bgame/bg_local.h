@@ -26,6 +26,7 @@ struct XAnimTree_s;
 constexpr auto JUMP_LAND_SLOWDOWN_TIME = 1800;
 constexpr auto MAX_FRIENDLY_DIST = 15000.0;
 
+#define STATIC_MAX_LOCAL_CLIENTS 1 // LWSS Add
 #define MAX_CLIENTS 64
 #define WEAPONSTATE_RAISING(x) (x == WEAPON_RAISING || x == WEAPON_RAISING_ALTSWITCH)
 #define WEAPONSTATE_DROPPING(x) (x == WEAPON_DROPPING || x == WEAPON_DROPPING_QUICK)
@@ -194,8 +195,8 @@ enum ViewLockTypes : __int32
 
 //struct $6CB7272563F4458FB40A4A5E123C4ABA // sizeof=0x4
 //{                                       // ...
-//    unsigned __int16 index;
-//    unsigned __int16 tree;
+//    uint16_t index;
+//    uint16_t tree;
 //};
 //union $76411D3CC105A18E6E4A61D5A929E310 // sizeof=0x4
 //{                                       // ...
@@ -994,14 +995,14 @@ struct playerState_s
     int eFlags; // 0x20000 = USING_VEHICLE
     int eventSequence;
     int events[4];
-    unsigned int eventParms[4];
+    uint32_t eventParms[4];
     int oldEventSequence;
     int clientNum;
     int offHandIndex;
     OffhandSecondaryClass offhandSecondary;
-    unsigned int weapon;
+    uint32_t weapon;
     weaponstate_t weaponstate;
-    unsigned int weaponShotCount;
+    uint32_t weaponShotCount;
     float fWeaponPosFrac;
     int adsDelayTime;
     int spreadOverride;
@@ -1022,9 +1023,9 @@ struct playerState_s
     int stats[4];
     int ammo[128];
     int ammoclip[128];
-    unsigned int weapons[4];
-    unsigned int weaponold[4];
-    unsigned int weaponrechamber[4];
+    uint32_t weapons[4];
+    uint32_t weaponold[4];
+    uint32_t weaponrechamber[4];
     float proneDirection;
     float proneDirectionPitch;
     float proneTorsoPitch;
@@ -1049,9 +1050,9 @@ struct playerState_s
     int meleeChargeTime;
     int weapLockFlags;
     int weapLockedEntnum;
-    unsigned int forcedViewAnimWeaponIdx;
+    uint32_t forcedViewAnimWeaponIdx;
     int forcedViewAnimWeaponState;
-    unsigned int forcedViewAnimOriginalWeaponIdx;
+    uint32_t forcedViewAnimOriginalWeaponIdx;
     ActionSlotType actionSlotType[4];
     ActionSlotParam actionSlotParam[4];
     int entityEventSequence;
@@ -1069,7 +1070,7 @@ struct playerState_s
     float dofViewmodelStart;
     float dofViewmodelEnd;
     int hudElemLastAssignedSoundID;
-    unsigned __int8 weaponmodels[128];
+    uint8_t weaponmodels[128];
     playerState_s_hud hud;
 };
 #endif
@@ -1194,9 +1195,9 @@ struct CEntActorInfo
 };
 struct cpose_t
 {
-    unsigned __int16 lightingHandle;
-    unsigned __int8 eType;
-    unsigned __int8 eTypeUnion;
+    uint16_t lightingHandle;
+    uint8_t eType;
+    uint8_t eTypeUnion;
     bool isRagdoll;
     int ragdollHandle;
     //int physObjId;
@@ -1230,7 +1231,7 @@ struct centity_s // sizeof=0x1DC
     float lightingOrigin[3];
     XAnimTree_s* tree;
 #else
-    unsigned __int8 oldEType;
+    uint8_t oldEType;
     int previousEventSequence;
     float lightingOrigin[3];
 #endif
@@ -1519,8 +1520,8 @@ struct scr_vehicle_s // sizeof=0x338
     VehicleJitter jitter;
     VehicleHover hover;
     int drawOnCompass;
-    unsigned __int16 lookAtText0;
-    unsigned __int16 lookAtText1;
+    uint16_t lookAtText0;
+    uint16_t lookAtText1;
     int manualMode;
     float manualSpeed;
     float manualAccel;
@@ -1718,6 +1719,7 @@ extern bgs_t *bgs;
 
 
 // bg_misc
+enum entity_event_t : __int32;
 struct WeaponDef;
 void __cdecl BG_RegisterShockVolumeDvars();
 void __cdecl BG_RegisterDvars();
@@ -1736,7 +1738,7 @@ bool __cdecl HaveRoomForAmmo(const playerState_s *ps, uint32_t weaponIndex);
 bool __cdecl BG_PlayerHasRoomForEntAllAmmoTypes(const entityState_s *ent, const playerState_s *ps);
 void __cdecl BG_EvaluateTrajectory(const trajectory_t *tr, int32_t atTime, float *result);
 void __cdecl BG_EvaluateTrajectoryDelta(const trajectory_t *tr, int32_t atTime, float *result);
-void __cdecl BG_AddPredictableEventToPlayerstate(uint32_t newEvent, uint32_t eventParm, playerState_s *ps);
+void __cdecl BG_AddPredictableEventToPlayerstate(entity_event_t newEvent, uint32_t eventParm, playerState_s *ps);
 void __cdecl BG_PlayerStateToEntityState(playerState_s *ps, entityState_s *s, int32_t snap, uint8_t handler);
 void __cdecl BG_PlayerToEntityEventParm(playerState_s *ps, entityState_s *s);
 void __cdecl BG_PlayerToEntityProcessEvents(playerState_s *ps, entityState_s *s, uint8_t handler);
@@ -1937,7 +1939,7 @@ void __cdecl PM_playerTrace(
     const float *end,
     int32_t passEntityNum,
     int32_t contentMask);
-void __cdecl PM_AddEvent(playerState_s *ps, uint32_t newEvent);
+void __cdecl PM_AddEvent(playerState_s *ps, entity_event_t newEvent);
 void __cdecl PM_AddTouchEnt(pmove_t *pm, int32_t entityNum);
 void __cdecl PM_ClipVelocity(const float *in, const float *normal, float *out);
 void __cdecl PM_ProjectVelocity(const float *velIn, const float *normal, float *velOut);
@@ -1950,7 +1952,7 @@ uint32_t __cdecl PM_GroundSurfaceType(pml_t *pml);
 int32_t __cdecl PM_GetViewHeightLerpTime(const playerState_s *ps, int32_t iTarget, int32_t bDown);
 bool __cdecl PlayerProneAllowed(pmove_t *pm);
 void __cdecl PM_FootstepEvent(pmove_t *pm, pml_t *pml, char iOldBobCycle, char iNewBobCycle, int32_t bFootStep);
-int32_t __cdecl PM_FootstepType(playerState_s *ps, pml_t *pml);
+entity_event_t PM_FootstepType(playerState_s *ps, pml_t *pml);
 bool __cdecl PM_ShouldMakeFootsteps(pmove_t *pm);
 void __cdecl PM_UpdateLean(
     playerState_s *ps,
@@ -1993,7 +1995,7 @@ void __cdecl PM_Accelerate(playerState_s *ps, const pml_t *pml, const float *wis
 double __cdecl PM_PlayerInertia(const playerState_s *ps, float accelspeed, const float *wishdir);
 bool __cdecl PM_DoPlayerInertia(const playerState_s *ps, float accelspeed, const float *wishdir);
 double __cdecl PM_MoveScale(playerState_s *ps, float fmove, float rmove, float umove);
-double __cdecl PM_CmdScale(playerState_s *ps, usercmd_s *cmd);
+float __cdecl PM_CmdScale(playerState_s *ps, usercmd_s *cmd);
 void __cdecl PM_AirMove(pmove_t *pm, pml_t *pml);
 void __cdecl PM_SetMovementDir(pmove_t *pm, pml_t *pml);
 void __cdecl PM_WalkMove(pmove_t *pm, pml_t *pml);
@@ -2004,10 +2006,10 @@ void __cdecl PM_NoclipMove(pmove_t *pm, pml_t *pml);
 void __cdecl PM_UFOMove(pmove_t *pm, pml_t *pml);
 void __cdecl PM_GroundTrace(pmove_t *pm, pml_t *pml);
 void __cdecl PM_CrashLand(playerState_s *ps, pml_t *pml);
-int32_t __cdecl PM_LightLandingForSurface(pml_t *pml);
-int32_t __cdecl PM_MediumLandingForSurface(pml_t *pml);
-uint32_t __cdecl PM_HardLandingForSurface(pml_t *pml);
-uint32_t __cdecl PM_DamageLandingForSurface(pml_t *pml);
+entity_event_t __cdecl PM_LightLandingForSurface(pml_t *pml);
+entity_event_t __cdecl PM_MediumLandingForSurface(pml_t *pml);
+entity_event_t __cdecl PM_HardLandingForSurface(pml_t *pml);
+entity_event_t __cdecl PM_DamageLandingForSurface(pml_t *pml);
 int32_t __cdecl PM_CorrectAllSolid(pmove_t *pm, pml_t *pml, trace_t *trace);
 void __cdecl PM_GroundTraceMissed(pmove_t *pm, pml_t *pml);
 double __cdecl PM_GetViewHeightLerp(const pmove_t *pm, int32_t iFromHeight, int32_t iToHeight);
@@ -2305,7 +2307,7 @@ WeaponDef *__cdecl BG_LoadWeaponDef(const char *name);
 WeaponDef *__cdecl BG_LoadWeaponDef_FastFile(const char *name);
 void __cdecl BG_AssertOffhandIndexOrNone(uint32_t offHandIndex);
 void __cdecl BG_StringCopy(uint8_t *member, const char *keyValue);
-int BG_ValidateWeaponNumberOffhand(unsigned int weaponIndex);
+int BG_ValidateWeaponNumberOffhand(uint32_t weaponIndex);
 
 
 // bg_vehicles_mp

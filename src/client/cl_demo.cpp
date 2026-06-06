@@ -828,8 +828,8 @@ void __cdecl CL_FinishLoadingDemo()
         do
         {
             MSG_ReadString(&v7, v8, 1024);
-            if (v8[0] && (unsigned int)(v0 - 1155) <= 0x1FF)
-                G_SetModelIndex(v0 - 1155, v8);
+            if (v8[0] && (unsigned int)(v0 - CS_MODELS) <= 0x1FF)
+                G_SetModelIndex(v0 - CS_MODELS, v8);
             else
                 SV_SetConfigstring(v0, v8);
             v1 = v8;

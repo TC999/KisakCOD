@@ -11,14 +11,21 @@
 #include "com_memory.h"
 #include "profile.h"
 
-
+#if defined(_WIN32)
 _RTL_CRITICAL_SECTION s_criticalSections[CRITSECT_COUNT];
+#else
+#include <mutex>
+std::mutex s_criticalSections[CRITSECT_COUNT];
+uint32_t s_criticalSectionsCount[CRITSECT_COUNT] = { 0 };
+#endif
 
 void Sys_InitializeCriticalSections()
 {
+#if defined(_WIN32)
 	for (int critSect = 0; critSect < CRITSECT_COUNT; critSect++) {
 		InitializeCriticalSection(&s_criticalSections[critSect]);
 	}
+#endif
 }
 
 void Sys_EnterCriticalSection(int critSect)
@@ -26,13 +33,25 @@ void Sys_EnterCriticalSection(int critSect)
     PROF_SCOPED("Sys_EnterCriticalSection");
 
 	iassert(critSect >= 0 && critSect < CRITSECT_COUNT);
+#if defined(_WIN32)
 	EnterCriticalSection(&s_criticalSections[critSect]);
+#else
+    s_criticalSections[critSect].lock();
+    // This is a ghetto hack to see if this is re-entrant
+    iassert(s_criticalSectionsCount[critSect] == 0);
+    s_criticalSectionsCount[critSect]++;
+#endif
 }
 
 void Sys_LeaveCriticalSection(int critSect)
 {
 	iassert(critSect >= 0 && critSect < CRITSECT_COUNT);
+#if defined(_WIN32)
 	LeaveCriticalSection(&s_criticalSections[critSect]);
+#else
+    s_criticalSectionsCount[critSect]--;
+    s_criticalSections[critSect].unlock();
+#endif
 }
 
 void Sys_LockWrite(FastCriticalSection* critSect)
@@ -57,7 +76,7 @@ void Sys_UnlockWrite(FastCriticalSection* critSect)
     InterlockedDecrement(&critSect->writeCount);
 }
 
-unsigned int Win_InitThreads()
+uint32_t Win_InitThreads()
 {
     HANDLE CurrentProcess;
     unsigned long result; 
@@ -362,7 +381,7 @@ char exePath[256];
 char *__cdecl Sys_DefaultInstallPath()
 {
     char *v0; // eax
-    unsigned int len; // [esp+0h] [ebp-8h]
+    uint32_t len; // [esp+0h] [ebp-8h]
     HINSTANCE__ *hinst; // [esp+4h] [ebp-4h]
 
     if (!exePath[0])
